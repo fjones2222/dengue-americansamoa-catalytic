@@ -1,0 +1,52 @@
+---
+title: "Code for [Manuscript title]"
+author: "Forrest Jones"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load-files}
+
+
+
+
+
+
+
+```
+
+
+## Main  results
+
+### Paragraph 1
+
+```{r}
+
+
+
+```
+
+
+
+## Table.
+
+
+
+## Figure 1.
+
+
+## Figure 2.
+
+
+
+## Figure 3
+
+
+
+
+## Supplement
