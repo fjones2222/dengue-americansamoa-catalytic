@@ -1,9 +1,9 @@
 
 
-survweights <- read_csv('Data/AS Data_Probability.csv')
+survweights <- read_csv('data/raw_data/AS Data_Probability.csv')
 
 
-wide_dataset <- read_csv("Data/wide_dataset.csv")%>% 
+wide_dataset <- read_csv("data/generated_data/wide_dataset.csv")%>% 
       rename(RecordID=`Record ID`,
                Age=`Calculated age based on DOB.`,
                Village=`Village of Residence`,
@@ -16,7 +16,7 @@ wide_dataset <- read_csv("Data/wide_dataset.csv")%>%
       left_join(survweights,by='RecordID')
      
 
-long_dataset <- read_csv("Data/long_dataset.csv")
+long_dataset <- read_csv("data/generated_data/long_dataset.csv")
 
 
 analysis_set <- list()

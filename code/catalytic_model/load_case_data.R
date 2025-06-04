@@ -1,5 +1,5 @@
 # Case data
-case_data_indiv = xl.read.file("Data/ArboNET Case Data.xlsx")
+case_data_indiv = xl.read.file("data/raw_data/ArboNET Case Data.xlsx")
 case_data_indiv$age = as.numeric(case_data_indiv$age)
 
 cases_by_year = case_data_indiv %>% group_by(year) %>% summarise(ncase = n())

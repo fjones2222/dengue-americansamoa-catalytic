@@ -1,5 +1,5 @@
 ## Population data comes from US census data
-popdata = read_excel('Data/2020 census.xlsx')
+popdata = read_excel('data/raw_data/2020 census.xlsx')
 popdata = popdata %>% 
       mutate(AgeGroup = gsub(' years','',AgeGroup)) %>% 
       filter(AgeGroup %in% agegroups) %>% mutate(npop=Number)

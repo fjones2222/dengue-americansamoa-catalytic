@@ -81,9 +81,10 @@ run_FRAILTYregression_model_case_ss = function(compiled_model,
       
       #if 2017 and 2018 are combined into 1 year of transmission, change the yob
       earliest_yob <- 2007
+      firstcases <-  2016
       if(combine_17_18==TRUE) {
             earliest_yob <- 2008
-            # T_case <- 7
+            firstcases <- 2017
             
       }
       
@@ -109,7 +110,7 @@ run_FRAILTYregression_model_case_ss = function(compiled_model,
                   AG=AG,
                   max_A=max_A,
                   casedata_lastyear=2023,
-                  casedata_firstyear=2016,
+                  casedata_firstyear=firstcases,
                   secondary_cases=case_data,
                   pop=pop_data,
                   lr_bound=lr_bound,

@@ -3,19 +3,32 @@ title: "Code for [Manuscript title]"
 author: "Forrest Jones"
 date: "`r Sys.Date()`"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+
+library(tidyverse)
+library(cowplot)
+library(tidybayes)
+
+```
+
 
 ```{r load-files}
 
 
+wide_dataset <- read_csv("data/generated_data/wide_dataset.csv")
+
+long_dataset <- read_csv("data/generated_data/long_dataset.csv")
 
 
-
+ArboNET_Case_Data <- read_excel("data/raw_data/ArboNET Case Data.xlsx")
 
 
 ```
@@ -23,9 +36,192 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Main  results
 
-### Paragraph 1
+### Residency history of school children in 2023 serological survey 
 
 ```{r}
+
+
+nrow(wide_dataset)
+
+group_by(wide_dataset, birth_group) %>%
+      summarise(
+            n=n(),
+            places=paste(unique(birthplace_clean),collapse=", ")
+            ) %>%
+      mutate(n/sum(n))
+
+lifelongers<- long_dataset %>%
+      group_by(`Record ID`)%>%
+      filter(all(Former_location=="American Samoa") & all(Latter_location=="American Samoa")) %>%
+      distinct(`Record ID`) 
+
+
+
+      
+
+nrow(lifelongers)
+nrow(lifelongers)/nrow(wide_dataset)
+
+
+
+
+
+nonendemies <- long_dataset %>%
+            group_by(`Record ID`)%>%
+            filter(sum(Former_location_group=="Non-endemic")>=2)%>%
+            mutate(any_PI=any(Former_location_group=="Pacific Islands")) %>%
+            filter(year %in% c(2017,2018)) %>%
+            mutate(IN_AS=any(Former_location_group=="American Samoa")) %>%
+            distinct(`Record ID`,IN_AS,any_PI) %>%
+            ungroup()%>%
+            left_join(wide_dataset) %>%
+            mutate(`Final Test Result`=ifelse(`Final Test Result`=="P",
+                                              "Positive","Negative"
+                                              ))
+
+
+
+
+
+nonendemies%>%
+            group_by(IN_AS) %>%
+            summarize(n=n(),
+                      seropos=sum(`Final Test Result`=="Positive"),
+                      seropos/n
+                      )
+
+
+long_dataset$Former_location_group %>% table()
+
+
+long_dataset %>%
+      filter(year %in% c(2017,2018)) %>%
+      group_by(`Record ID`)%>%
+      mutate(category=case_when(
+            all(Former_location_group=="Pacific Islands") ~ "Pacific Islands",
+            all(Former_location_group=="American Samoa") ~ "American Samoa",
+            all(Former_location_group=="Non-endemic") ~ "Non-endemic",
+            TRUE ~ "Mixed"
+      )) %>% 
+      distinct(`Record ID`,category) %>%
+      left_join(wide_dataset) %>%
+            group_by(category) %>%
+            summarize(n=n(),
+                      seropos=sum(`Final Test Result`=="P"),
+                      seropos/n
+                      )
+
+
+
+
+
+```
+
+## Table.
+
+```{r}
+
+neccesary_years= long_dataset %>%
+                  group_by(`Record ID`)%>%
+                        summarise(years_AS=sum(Former_location_group=="American Samoa"),
+                                  loc_2017=Former_location_group[year==2017],
+                                  loc_2018=Former_location_group[year==2018]
+                                  )
+
+
+wide_dataset %>%
+      left_join(neccesary_years)%>%
+      group_by(birth_group)%>%
+      summarise(n=n(),age=median(`Calculated age based on DOB.`),
+                lb_age = quantile(`Calculated age based on DOB.`,0.25),
+              ub_age = quantile(`Calculated age based on DOB.`,0.75),
+              female=sum(Sex=="Female"),
+                            percent_female=mean(Sex=="Female"),
+                          AS=median(years_AS),
+                          lb_AS=quantile(years_AS,0.25),
+                            ub_AS=quantile(years_AS,0.75),
+                          seropos=sum(`Final Test Result`=="P"),
+              ob=sum(loc_2017=="American Samoa" | loc_2018=="American Samoa"),
+              ob_percent=mean(loc_2017=="American Samoa" | loc_2018=="American Samoa"),
+            per_seropos=mean(`Final Test Result`=="P")
+                )
+      
+
+wide_dataset %>% 
+      count(School,birth_group) %>%
+      group_by(School)%>%
+      mutate(percent=n/sum(n))%>%
+      ggplot(aes(y=School,x=birth_group))+
+      geom_tile(aes(fill = percent))+
+      scale_fill_distiller(palette="Blues",direction = 1)
+      
+
+
+```
+
+## Figure 1.
+
+```{r}
+
+
+silent_ob_2009 <- data.frame(
+      serotype=c("DENV-4 outbreak?"),
+      cases=55519*644/100000,
+      year=c(2009)
+      )
+
+silent_ob_2015 <- data.frame(
+      serotype=c("DENV-2?"),
+      cases=c(898/2),
+      year=c(2015)
+      )
+
+
+ArboNET_Case_Data %>%
+      count(year) %>%
+      bind_rows(data.frame(n=0,year=c(2019,2020,2021,2023))) %>%
+      ggplot(aes(x=year,y=n))+
+      geom_col(fill="#3182BD")+
+      geom_col(data=silent_ob_2009,aes(x=year,y=cases),lty=2,fill=NA,
+               col="black"
+               )+
+      geom_col(data=silent_ob_2015,aes(x=year,y=cases),lty=2,fill=NA,col="black")+
+      geom_text(aes(label=n,y=n+15))+
+      scale_x_continuous("Year",limits=c(2008,2024),breaks=2008:2023)+
+      scale_y_continuous("Number of Cases", limits = c(0,600),breaks=seq(0,600,100))+
+      theme_cowplot()+
+      
+      # Serosurvey annotation boxes
+      annotate("label", x = 2010.5, y = 200,
+               label = "2010 Serosurvey\n18–25 yrs: 89.0%\n26–40 yrs: 99.5%\nn=395",
+               size = 4, color = "black", fill = "white", label.size = 0.5,
+               lineheight = 1.3, hjust = 0.3, vjust = 0.5) +
+      annotate("label", x = 2023, y = 200,
+               label = "2023 Serosurvey\n7–16 yrs: 59%\nn=887",
+               size = 4, color = "black", fill = "white", label.size = 0.5,
+               lineheight = 1.2, hjust = 0.5, vjust = 0.5)+
+
+      # Arrows from serosurvey boxes
+      annotate("segment",
+               x = 2011, xend = 2010.1,
+               y = 120, yend = 0,
+               arrow = arrow(length = unit(0.7, "cm")),
+               color = "black", linewidth = 1.2) +
+      annotate("segment",
+               x = 2023, xend = 2023,
+               y = 140, yend = 40,
+               arrow = arrow(length = unit(0.7, "cm")),
+               color = "black", linewidth = 1.2)+
+      annotate("text", x = 2009, y = silent_ob_2009$cases+40,
+               label = "DENV-4\noutbreak?",
+               size = 4)+
+      annotate("text", x = 2015, y = silent_ob_2015$cases+40,
+               label = "DENV-3\noutbreak?",
+               size = 4)+
+      annotate("text", x = 2017, y = 508+60,
+               label = "DENV-2\noutbreak",
+               col="#3182BD",
+               size = 4)
 
 
 
@@ -33,18 +229,508 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 
-## Table.
-
-
-
-## Figure 1.
-
-
 ## Figure 2.
 
+```{r}
+
+#Dataset 2: Residency Figures 
+### with weighted data####
+library(readxl)
+wgt_sum <- read_xlsx("wgt_sum.xlsx")### what is this file
+wgt_sum <- wgt_sum %>%
+      mutate(
+            point_prop = point / 100,
+            lower_prop = lower / 100,
+            upper_prop = upper / 100
+      )
+
+f2a <- ggplot(wgt_sum, aes(x = birth_group, y = point_prop)) +
+      geom_point(size = 3, color = "blue") +  # Point estimates
+      geom_errorbar(aes(ymin = lower_prop, ymax = upper_prop), width = 0.2, color = "black") +  # Error bars for CIs
+      scale_y_continuous(limits = c(0, 1), 
+                         breaks = seq(0, 1, by = 0.2), 
+                         labels = scales::percent) +
+      labs(x = "Birthplace location group",
+           y = "Prevalence of previous dengue infection") +
+      theme_bw() +
+      theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+
+f2a
+
+###weightedestimates###
+f2a <- survey_data1%>%
+      mutate(location_group = case_when(
+            birthplace_clean == "Missing" ~ NA_character_,  # Use NA_character_ for character columns
+            birthplace_clean == "American Samoa" ~ "American Samoa",
+            birthplace_clean %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines", "Hawaii") ~ "Pacific Islands",
+            birthplace_clean %in% c("New Zealand", "USA", "Australia") ~ "Non-endemic",
+            TRUE ~ birthplace_clean # Retain any other locations unchanged
+      ))%>%
+      group_by(location_group)%>%
+      summarise(seropos=mean(`Final Test Result`== "P")) %>%
+      ggplot(aes(x=location_group,y=seropos))+
+      geom_point()+
+      scale_y_continuous(limits=c(0,1))
+
+
+
+###weightedestimates###
+f2a <- survey_data1%>%
+      mutate(location_group = case_when(
+            birthplace_clean == "Missing" ~ NA_character_,  # Use NA_character_ for character columns
+            birthplace_clean == "American Samoa" ~ "American Samoa",
+            birthplace_clean %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines", "Hawaii") ~ "Pacific Islands",
+            birthplace_clean %in% c("New Zealand", "USA", "Australia") ~ "Non-endemic",
+            TRUE ~ birthplace_clean # Retain any other locations unchanged
+      ))%>%
+      group_by(location_group)%>%
+      summarise(seropos=mean(`Final Test Result`== "P")) %>%
+      ggplot(aes(x=location_group,y=seropos))+
+      geom_point()+
+      scale_y_continuous(limits=c(0,1))
+
+
+```
+
+
+
+```{r}
+
+library(cowplot)
+
+fig_df_2b <-long_dataset %>%
+      inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+      filter(IN_AS)
+
+f2b <- fig_df_2b%>%
+      ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+      geom_tile(aes(fill=Former_location_group))+
+      geom_tile(data=fig_df_2b %>%
+            filter(year %in% c(2017,2018)),fill=NA,col="black")+
+
+      # geom_vline(
+      #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+      #       color = "black",
+      #       linewidth = 3  
+      # )+
+      facet_grid(`Final Test Result`~., scales="free_y", space = "free_y")+
+      ylab("Serosurvey Participant ID")+
+      scale_x_discrete("Year",limits=factor(2007:2023))+
+      scale_fill_brewer("Location", palette="Set2")+
+      theme_cowplot()+
+      theme(axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.text.x = element_text(angle=45,hjust = 1))+
+      ggtitle("Resided in American Samoa\nduring outbreak")
+
+
+fig_df_2c <-long_dataset %>%
+      inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+      filter(!IN_AS)
+      
+
+
+f2c <- fig_df_2c%>%
+      ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+      geom_tile(aes(fill=Former_location_group))+
+      geom_tile(data=fig_df_2c %>%
+            filter(year %in% c(2017,2018)),fill=NA,col="black")+
+
+      # geom_vline(
+      #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+      #       color = "black",
+      #       linewidth = 3  
+      # )+
+      facet_grid(`Final Test Result`~., scales="free_y", space = "free_y")+
+      ylab("Serosurvey Participant ID")+
+      xlab("Year")+
+      scale_fill_brewer("Location", palette="Set2")+
+      theme_cowplot()+
+      theme(axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.text.x = element_text(angle=45,hjust = 1))+
+      ggtitle("Did not reside in\nAmerican Samoa during outbreak")
+
+
+
+plot_grid(f2b+theme(legend.position = "none")
+                ,f2c,
+          rel_widths = c(1,1.35)
+          )
+
+# 
+# long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group)) %>%
+#       filter(birth_group=="American Samoa")%>%
+#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+#       geom_tile(aes(fill=Former_location_group),col="black")+
+#       # geom_vline(
+#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+#       #       color = "black",
+#       #       linewidth = 3  
+#       # )+
+#       facet_grid(`Final Test Result`~birth_group, scales="free_y", space = "free_y")+
+#       ylab("Serosurvey Participant ID")+
+#       xlab("Year")+
+#       scale_fill_brewer("Location", palette="Set2")+
+#       theme_cowplot()+
+#       theme(axis.text.y = element_blank(),
+#             axis.ticks.y = element_blank(),
+#             axis.text.x = element_text(angle=45,hjust = 1)
+#       )
+# 
+# 
+# long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group)) %>%
+#       filter(birth_group!="American Samoa")%>%
+#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+#       geom_tile(aes(fill=Former_location_group),col="black")+
+#       # geom_vline(
+#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+#       #       color = "black",
+#       #       linewidth = 3  
+#       # )+
+#       facet_grid(`Final Test Result`~birth_group, scales="free_y", space = "free_y")+
+#       ylab("Serosurvey Participant ID")+
+#       xlab("Year")+
+#       scale_fill_brewer("Location", palette="Set2")+
+#       theme_cowplot()+
+#       theme(axis.text.y = element_blank(),
+#             axis.ticks.y = element_blank(),
+#             axis.text.x = element_text(angle=45,hjust = 1)
+#       )
+# 
+# 
+# long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+#       filter(`Final Test Result`=="P")%>% 
+#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+#       geom_tile(aes(fill=Former_location_group))+
+#       geom_tile(data=long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+#       filter(`Final Test Result`=="P") %>%
+#             filter(year %in% c(2017,2018)),fill=NA,col="black")+
+# 
+#       # geom_vline(
+#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+#       #       color = "black",
+#       #       linewidth = 3  
+#       # )+
+#       facet_grid(IN_AS~`Final Test Result`, scales="free_y", space = "free_y")+
+#       ylab("Serosurvey Participant ID")+
+#       xlab("Year")+
+#       scale_fill_brewer("Location", palette="Set2")+
+#       theme_cowplot()+
+#       theme(axis.text.y = element_blank(),
+#             axis.ticks.y = element_blank(),
+#             axis.text.x = element_text(angle=45,hjust = 1))
+# 
+# long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+#       filter(`Final Test Result`=="N")%>%
+#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+#       geom_tile(aes(fill=Former_location_group))+
+#       geom_tile(data=long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+#       filter(`Final Test Result`=="N") %>%
+#             filter(year %in% c(2017,2018)),fill=NA,col="black")+
+# 
+#       # geom_vline(
+#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+#       #       color = "black",
+#       #       linewidth = 3  
+#       # )+
+#       facet_grid(IN_AS~`Final Test Result`, scales="free_y", space = "free_y")+
+#       ylab("Serosurvey Participant ID")+
+#       xlab("Year")+
+#       scale_fill_brewer("Location", palette="Set2")+
+#       theme_cowplot()+
+#       theme(axis.text.y = element_blank(),
+#             axis.ticks.y = element_blank(),
+#             axis.text.x = element_text(angle=45,hjust = 1))
+
+
+
+
+```
 
 
 ## Figure 3
+
+
+
+
+## Figure 4
+
+```{r}
+
+#Research Question 1: 1.Is there evidence of local transmission of dengue in American Samoa during years without cases reported?
+modelobject<- former <- read_rds(file="output/model_fits/20250519_1633_former_dl.rds")
+
+##modelfit<-read_rds("code/catalytic_model/as_denguefoi_fixeff_casess_Tlambda_17_mi_3_covs__ns_4_case2010to2022.rds")
+modelfit<-modelobject$fit
+draws<-modelfit%>%
+      spread_draws(lambda[year])
+
+
+
+#refining this based on the recs 
+draws1 <- modelfit %>%
+      spread_draws(lambda[year]) %>%
+      group_by(year) %>%
+      summarize(
+            median = median(lambda * 4),
+            lower = quantile(lambda * 4, 0.25),
+            upper = quantile(lambda * 4, 0.75),
+            .groups = 'drop'
+      ) %>%
+      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
+      filter(actual_year >= 2008) 
+      
+ ###foi is draws 1     
+      draws1
+f4a_p1 <- ggplot(draws1, aes(x = actual_year)) +
+      geom_point(aes(y = median)) +
+      geom_linerange(aes(ymin = lower, ymax = upper)) +
+      scale_x_continuous("Year",breaks = 2008:2023) +  # Show all years
+      theme_minimal() +  # Using minimal theme
+      theme(
+            panel.grid.minor = element_blank(),  # Remove minor grid lines
+            panel.grid.major = element_blank(),  # Remove major grid lines
+            panel.background = element_blank(),   # Remove panel background
+            plot.background = element_blank(),    # Remove plot background
+            axis.line = element_line(color = "black")  # Add axis lines
+      )+ 
+      theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+                scale_y_continuous("Force of Infection",
+                                   limits=c(0,0.8)
+                                   )
+
+f4a_p2<- modelfit%>%
+      gather_draws(logit_lambda_nonend,logit_lambda_end) %>%
+      median_qi() %>%
+      mutate(setting=ifelse(.variable=="logit_lambda_nonend",
+                            "Non-endemic","Pacific Islands"
+                            )) %>%
+      mutate(.value=4*expit(.value),
+             .lower  =4*expit(.lower),
+             .upper =4*expit(.upper)
+             
+             )%>%
+      ggplot(aes(x=setting,y=.value))+
+      geom_point()+
+      geom_linerange(aes(ymin=.lower,ymax=.upper))+
+      theme_minimal()+
+      xlab("Setting") +  # Using minimal theme
+      theme(
+            panel.grid.minor = element_blank(),  # Remove minor grid lines
+            panel.grid.major = element_blank(),  # Remove major grid lines
+            panel.background = element_blank(),   # Remove panel background
+            plot.background = element_blank(),    # Remove plot background
+            axis.line = element_line(color = "black")  # Add axis lines
+      )+ 
+      theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+                scale_y_continuous("Force of Infection",
+                                   limits=c(0,0.8)
+                                   )
+
+
+former <- read_rds(file="output/model_fits/20250519_1633_former_dl.rds")
+
+lambdas <- former$fit %>% spread_draws(lambda[t]) 
+
+ages <- 1:49
+times <-1:64
+
+cumlambdas <- data.frame()
+
+for(i in times){
+      for(a in ages){
+            
+            print(i)
+            print(a)
+            
+            tmp_cum_lambdas <- lambdas %>% 
+                  filter(t<=i) %>% ### only include the years that have occurred before or during time i
+                  filter(t>=(i-a)) %>% ### only include those years where the individuals are alive
+                  group_by(.draw)%>%
+                  summarise(cumlambda=sum(lambda)) %>%
+                  mutate(age=a,
+                         year=i
+                  )
+            
+            
+            cumlambdas <- bind_rows(cumlambdas,
+                                    tmp_cum_lambdas
+            )
+            
+            
+            
+            
+            
+      }
+}
+
+
+
+
+# Convert cumulative FOI into population proportions
+pop_groups<- cumlambdas %>%
+      mutate(susc=exp(-4 * cumlambda),
+             mono= 4*exp(-3*cumlambda)*(1-exp(-cumlambda)),
+      )%>%
+      mutate(the_rest=1-susc-mono)%>%
+      group_by(.draw,year)%>%
+      summarise(median=mean(cumlambda),
+                susc=mean(susc),
+                mono=mean(mono),
+                the_rest=mean(the_rest)
+      ) 
+
+
+f4b_data <- pop_groups %>%
+      select(-median) %>%
+      gather(type, value, -c(year, .draw)) %>%
+      group_by(type, year) %>%
+      summarise(
+            median = median(value),
+            lb = quantile(value, 0.025),
+            ub = quantile(value, 0.975),
+            .groups = "drop"
+      )
+
+# Fix and relabel data for plot
+f4b_table <- f4b_data %>%
+      mutate(
+            year = 2023 - 64 + year,
+            Type = factor(type, levels = c("susc", "mono", "the_rest"),
+                          labels = c("DENV-naïve", "Primary", "Multiple"))
+      ) %>%
+      filter(year >= 2008) %>%
+      select(year, Type, median, lb, ub) %>%
+      arrange(year, Type)
+
+# print(f4b_table, n=Inf)
+
+# Plot with correct labels and axis
+library(scales)  
+
+f4b <- ggplot(f4b_table, aes(x = year, y = median, color = Type, fill = Type)) +
+      geom_line(linewidth = 1) +
+      geom_ribbon(aes(ymin = lb, ymax = ub), alpha = 0.4, color = NA) +
+      
+      # Add year breaks on x-axis
+      scale_x_continuous(
+            breaks = seq(min(f4b_table$year), max(f4b_table$year), by = 1)
+      ) +
+      
+      # Format y-axis as percentages
+      scale_y_continuous(labels = percent_format(accuracy = 1)) +
+      
+      labs(
+            x = "Year",
+            y = "Proportion of Population",
+            color = "Infection History",
+            fill = "Infection History"
+      ) +
+      theme_minimal(base_size = 12) +
+      theme(
+            legend.title = element_text(face = "bold"),
+            legend.text = element_text(size = 10),
+            axis.text = element_text(size = 10),
+            axis.title = element_text(size = 10),
+            panel.grid.minor = element_blank(),
+            panel.grid.major = element_blank(),
+            panel.background = element_blank(),
+            plot.background = element_blank(),
+            axis.line = element_line(color = "black"),
+            axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1) 
+            
+      )
+
+
+
+# Line plot with ribbon
+
+#this is for year 2023 
+draws3_2023 <- modelfit %>%
+      spread_draws(mono[age, year]) %>%
+      filter(year == 8) %>%
+      group_by(age) %>%
+      summarise(
+            median = median(mono),
+            lb = quantile(mono, 0.025),
+            ub = quantile(mono, 0.975),
+            .groups = 'drop'
+      )
+
+f4c <- ggplot(draws3_2023, aes(x = age, y = median)) +
+      geom_line() +
+      geom_ribbon(alpha = 0.5, aes(ymin = lb, ymax = ub)) +
+      labs(x = "Age (years)",
+           y = "Proportion of population\nwith one previous DENV infection") +
+      scale_y_continuous(labels = scales::percent_format(), limits = c(0, 0.5)) + 
+      scale_x_continuous(limits = c(0, 50), breaks = seq(0, 50, 5)) +  # Set limits and breaks
+      theme_minimal() +
+      theme(
+            panel.grid.minor = element_blank(),  # Remove minor grid lines
+            panel.grid.major = element_blank(),  # Remove major grid lines
+            panel.background = element_blank(),   # Remove panel background
+            plot.background = element_blank(),    # Remove plot background
+            axis.line = element_line(color = "black")  # Add axis lines
+      )
+
+
+
+# Arrange horizontally
+# figure4 <-  plot_grid(
+#             cowplot::plot_grid(f4a_p1,f4b+
+#                                      theme(legend.position = "none")
+#                                      , f4c,
+#                    labels = c("A","C", "D"),
+#                    nrow = 3,          
+#                    label_size = 12,   
+#                    align = 'hv'),
+#             plot_grid(
+#       f4a_p2,
+#       get_legend(f4b),
+#       ggplot()+theme_void(),
+#       nrow = 3
+# ),rel_widths = c(3,1))
+
+
+
+
+figure4 <- plot_grid(f4a_p1,f4a_p2,
+          f4b+theme(legend.position = "none"),
+                get_legend(f4b),
+                  f4c,
+      ggplot()+theme_void(),
+      nrow=3,
+      align = "hv",
+      axis="bl",
+       label_size = 12,   
+       labels = c("A","B","C","","D",""),
+      rel_widths = c(3,1)
+
+)
+          
+          
+      
+
+figure4
+
+ggsave(filename = "Figures/figure4.png",
+       plot = figure4,
+       height = 6.42,
+       width = 4.34,
+       scale=1.5
+       )
+
+
+```
+
+
 
 
 

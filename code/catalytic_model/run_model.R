@@ -27,20 +27,20 @@
 
 rm(list=ls())
 
-setwd("code/catalytic_model/")
+# setwd("code/catalytic_model/")
 
-source("20250513_hitchings/load_libraries_0513.R")
-source("load_case_data.R")
-source("load_census_data.R")
-source("set_parameters.R")
-source("load_serosurvey_data.R")
+source("code/catalytic_model/load_libraries.R")
+source("code/catalytic_model/load_case_data.R")
+source("code/catalytic_model/load_census_data.R")
+source("code/catalytic_model/set_parameters.R")
+source("code/catalytic_model/load_serosurvey_data.R")
 
 options(mc.cores = parallel::detectCores()) # checks number of cores without having later to specify the cores argument
 rstan_options(auto_write = TRUE) # extended packages to use stan
 
 
 #### lets try the added frailty model
-model_FRAILTYcode = stanc(file="20250513_hitchings/AS_dengue_catalytic_schoolFOI_0513.stan")
+model_FRAILTYcode = stanc(file="code/catalytic_model/AS_dengue_catalytic_schoolFOI_0513.stan")
 compiled_FRAILTYmodel = stan_model(stanc_ret = model_FRAILTYcode)
 
 #run the for each population model
@@ -85,72 +85,11 @@ for(pop in names(analysis_set)){
                                                            )
       
 
-      write_rds(this_object,file = glue::glue('output/{format(Sys.time(), "%Y%m%d")}_{hour(Sys.time())}{minute(Sys.time())}_{pop}.rds'))
+      write_rds(this_object,file = glue::glue('output/model_fits/{format(Sys.time(), "%Y%m%d")}_{hour(Sys.time())}{minute(Sys.time())}_{pop}.rds'))
             
 
 }
 
-
-
-everyone <- read_rds(file="output/20250507_926_everyone.rds")
-lifelong <- read_rds(file="output/20250507_932_lifelong.rds")
-former <- read_rds(file="output/20250507_938_former.rds")
-latter <- read_rds(file="output/20250507_944_latter.rds")
-
-
-everyone$fit %>% rhat() %>% hist()
-lifelong$fit %>% rhat() %>% hist()
-former$fit %>% rhat() %>% hist()
-latter$fit %>% rhat() %>% hist()
-
-everyone$fit %>% shinystan::launch_shinystan()
-lifelong$fit %>% rhat() %>% hist()
-former$fit %>% rhat() %>% hist()
-latter$fit %>% rhat() %>% hist()
-
-
-
-## run for 2 to 4 serotypes
-for(circ_sero in 2:4){
-      
-      this_dataset <- analysis_set[["former"]]
-      
-      as_denguemod = run_FRAILTYregression_model_case_ss(compiled_FRAILTYmodel,
-                                                         serosurv_data=this_dataset, #serosurv_data,
-                                                         case_data,
-                                                         pop_data,
-                                                         lr_bound,
-                                                         ur_bound,
-                                                         svyweights=1,
-                                                         c(),
-                                                         c(),
-                                                         maternal_immunity,T_lambda,
-                                                         n_serotypes=circ_sero,T,glue::glue('_case2016to2022_former_{circ_sero}serotypes_{Sys.Date()}'),
-                                                         number_of_chains = 4
-      )
-      
-      
-      this_object <- list(
-            population = "former",
-            dataset= this_dataset,
-            fit= as_denguemod,
-            p1 = seroprev_fitgraph(this_dataset,as_denguemod),
-            p2 = year_fitgraph(as_denguemod),
-            p3 = agegroup_fitgraph(as_denguemod),
-            foi_table = make_foi_table(as_denguemod)
-            
-      )
-      
-      this_object[["combined_plot"]] <- cowplot::plot_grid(this_object$p1,
-                                                           cowplot::plot_grid(this_object$p2,this_object$p3),
-                                                           ncol=1
-      )
-      
-      
-      write_rds(this_object,file = glue::glue('output/{format(Sys.time(), "%Y%m%d")}_{hour(Sys.time())}{minute(Sys.time())}_former_{circ_sero}serotypes.rds'))
-      
-      
-}
 
 
 ######### combine 2017 and 2018 into one year----
@@ -187,19 +126,113 @@ as_denguemod = run_FRAILTYregression_model_case_ss(compiled_FRAILTYmodel,
                                                    svyweights=1,
                                                    c(),
                                                    c(),
-                                                   maternal_immunity,T_lambda,
-                                                   n_serotypes=4,T,glue::glue('_case2016to2022_former_combo1718_{Sys.Date()}'),
+                                                   maternal_immunity,#T_lambda,
+                                                   n_serotypes,T,glue::glue('_case2016to2022_former_combo1718_{Sys.Date()}'),
                                                    number_of_chains = 4,
-                                                   combine_17_18=TRUE
+                                                    combine_17_18=TRUE
 
 )
 
 
+as_denguemod = run_FRAILTYregression_model_case_ss(compiled_FRAILTYmodel,
+                                                   serosurv_data=this_dataset, #serosurv_data,
+                                                   case_data,
+                                                   pop_data,
+                                                   lr_bound,
+                                                   ur_bound,
+                                                   svyweights=1,
+                                                   c(),
+                                                   c(),
+                                                   maternal_immunity,#T_lambda,
+                                                   n_serotypes,T,glue::glue('_case2016to2022_{pop}_{Sys.Date()}'),
+                                                   number_of_chains = 4
+)
 
-write_rds(as_denguemod,file = glue::glue('output/{format(Sys.time(), "%Y%m%d")}_{hour(Sys.time())}{minute(Sys.time())}_former_combo1718.rds'))
 
 
 
+
+write_rds(as_denguemod,file = glue::glue('output/model_fits/{format(Sys.time(), "%Y%m%d")}_{hour(Sys.time())}{minute(Sys.time())}_former_combo1718.rds'))
+
+
+
+
+
+
+
+# everyone <- read_rds(file="output/20250507_926_everyone.rds")
+# lifelong <- read_rds(file="output/20250507_932_lifelong.rds")
+# former <- read_rds(file="output/20250507_938_former.rds")
+# latter <- read_rds(file="output/20250507_944_latter.rds")
+# 
+# 
+# everyone$fit %>% rhat() %>% hist()
+# lifelong$fit %>% rhat() %>% hist()
+# former$fit %>% rhat() %>% hist()
+# latter$fit %>% rhat() %>% hist()
+# 
+# everyone$fit %>% shinystan::launch_shinystan()
+# lifelong$fit %>% rhat() %>% hist()
+# former$fit %>% rhat() %>% hist()
+# latter$fit %>% rhat() %>% hist()
+# 
+# 
+# 
+# ## run for 2 to 4 serotypes
+# for(circ_sero in 2:4){
+#       
+#       this_dataset <- analysis_set[["former"]]
+#       
+#       # as_denguemod = run_FRAILTYregression_model_case_ss(compiled_FRAILTYmodel,
+#       #                                                    serosurv_data=this_dataset, #serosurv_data,
+#       #                                                    case_data,
+#       #                                                    pop_data,
+#       #                                                    lr_bound,
+#       #                                                    ur_bound,
+#       #                                                    svyweights=1,
+#       #                                                    c(),
+#       #                                                    c(),
+#       #                                                    maternal_immunity,T_lambda,
+#       #                                                    n_serotypes=circ_sero,T,glue::glue('_case2016to2022_former_{circ_sero}serotypes_{Sys.Date()}'),
+#       #                                                    number_of_chains = 4
+#       # )
+#       
+#       as_denguemod = run_FRAILTYregression_model_case_ss(compiled_FRAILTYmodel,
+#                                                          serosurv_data=this_dataset, #serosurv_data,
+#                                                          case_data,
+#                                                          pop_data,
+#                                                          lr_bound,
+#                                                          ur_bound,
+#                                                          svyweights=1,
+#                                                          c(),
+#                                                          c(),
+#                                                          maternal_immunity,#T_lambda,
+#                                                          n_serotypes=circ_sero,T,glue::glue('_case2016to2022_former_{circ_sero}serotypes_{Sys.Date()}'),
+#                                                          number_of_chains = 4
+#       )
+#       
+#       
+#       this_object <- list(
+#             population = "former",
+#             dataset= this_dataset,
+#             fit= as_denguemod,
+#             p1 = seroprev_fitgraph(this_dataset,as_denguemod),
+#             p2 = year_fitgraph(as_denguemod),
+#             p3 = agegroup_fitgraph(as_denguemod),
+#             foi_table = make_foi_table(as_denguemod)
+#             
+#       )
+#       
+#       this_object[["combined_plot"]] <- cowplot::plot_grid(this_object$p1,
+#                                                            cowplot::plot_grid(this_object$p2,this_object$p3),
+#                                                            ncol=1
+#       )
+#       
+#       
+#       write_rds(this_object,file = glue::glue('output/model_fits/{format(Sys.time(), "%Y%m%d")}_{hour(Sys.time())}{minute(Sys.time())}_former_{circ_sero}serotypes.rds'))
+#       
+#       
+# }
 
 
 
