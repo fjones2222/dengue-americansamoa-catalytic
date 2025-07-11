@@ -17,6 +17,7 @@ library(tidyverse)
 library(cowplot)
 library(tidybayes)
 library(readxl)
+library(survey)
 
 expit = function(x) {1/(1+exp(-x))}
 
@@ -55,6 +56,10 @@ prevalence.est <- function(result, sens=0.90, spec=0.96, dsgn, d.f=NULL, alpha=0
       rownames(result.mat) <- rownames(result)
       result.mat
 }
+
+
+
+
 
 
 ```
@@ -305,7 +310,12 @@ survey_dataset <- wide_dataset %>%
             loc_2017 == "Non-endemic" & loc_2018 == "Non-endemic" ~ "Non-endemic",
             loc_2017 == "Pacific Islands" & loc_2018 == "Pacific Islands" ~ "Pacific Islands",
             TRUE~ "Mixed"
-      ))
+      )) %>%
+      mutate(birth_group=ifelse(str_detect(birth_group,"New Zealand"),
+                             "Non-endemic",birth_group
+                             ))
+
+table(survey_dataset$ob_location)
 
 
 # adding FPC (finite population correction) values based on original number of elem/hs schools sampled from
@@ -324,7 +334,11 @@ as.dsn <- svydesign(
 
 #overall prevalence estimate
 tmp <- svymean(~sero_binary, design=as.dsn, na.rm=TRUE, method="likelihood", level=0.95)
-prevalence.est(tmp, dsgn=as.dsn, d.f=degf(as.dsn), alpha=0.025)
+overall_df <- prevalence.est(tmp, dsgn=as.dsn, d.f=degf(as.dsn), alpha=0.025) %>% 
+      data.frame() %>%
+      mutate(type="Overall")
+overall_df$category <- "Overall"
+
 
 # prevalence estimate by birth location
 tmp2 <- svyby(
@@ -336,7 +350,11 @@ tmp2 <- svyby(
 )
 
 # prevalence estimate by location during outbreak
-prevalence.est(tmp2, dsgn=as.dsn, d.f=degf(as.dsn), alpha=0.025)
+birth_df<- prevalence.est(tmp2, dsgn=as.dsn,d.f=NULL, alpha=0.025)%>%
+      data.frame()%>%
+      mutate(type="Birth Location")
+birth_df$category <- rownames(birth_df)
+
 tmp3 <- svyby(
       ~sero_binary,
       ~ob_location,        # <-- your stratifying variable
@@ -345,7 +363,102 @@ tmp3 <- svyby(
       na.rm = TRUE
 )
 
-prevalence.est(tmp3, dsgn=as.dsn, d.f=degf(as.dsn), alpha=0.025)
+
+
+
+obloc_df <- prevalence.est(tmp3, dsgn=as.dsn, d.f=NULL,alpha=0.025)%>%
+      data.frame()%>%
+      mutate(type="OB Location")
+obloc_df$category <- rownames(obloc_df)
+
+f2_df <- bind_rows(overall_df,birth_df,obloc_df) %>%
+      mutate(category=factor(category,
+            levels = c("Overall",
+            "American Samoa",
+            "Pacific Islands",
+            "Non-endemic",
+            "Mixed"
+            ),
+            labels=c("Overall",
+                     "American\nSamoa",
+                     "Other Tropical\nIslands",
+                     "Areas with\nlimited or no\ntransmission ",
+                     "Multiple\nlocations"
+                     )
+            
+      ))
+
+
+survey_dataset %>%
+      count(category=birth_group)%>%
+      mutate(category=factor(category,
+            levels = c("Overall",
+            "American Samoa",
+            "Pacific Islands",
+            "Non-endemic",
+            "Mixed"
+            ),
+            labels=c("Overall",
+                     "American\nSamoa",
+                     "Other Tropical\nIslands",
+                     "Areas with\nlimited or no\ntransmission ",
+                     "Multiple\nlocations"
+                     )
+            
+      ))
+
+
+f2a <- f2_df %>%
+      filter(type %in% c("Overall","Birth Location")) %>%
+      ggplot(aes(x=category))+
+      geom_point(aes(y=point))+
+      geom_linerange(aes(ymin=lower,ymax=upper))+
+      scale_y_continuous("Dengue seroprevalence",limits=c(0,1))+
+      xlab("Birth Location")+
+      theme_cowplot()+
+      theme(axis.text.x = element_text(angle = 45,hjust=1))
+
+survey_dataset %>%
+      count(category=ob_location)%>%
+      mutate(category=factor(category,
+            levels = c("Overall",
+            "American Samoa",
+            "Pacific Islands",
+            "Non-endemic",
+            "Mixed"
+            ),
+            labels=c("Overall",
+                     "American\nSamoa",
+                     "Other Tropical\nIslands",
+                     "Areas with\nlimited or no\ntransmission ",
+                     "Multiple\nlocations"
+                     )
+            
+      ))
+
+
+f2b <- f2_df %>%
+      filter(type %in% c("Overall","OB Location")) %>%
+      ggplot(aes(x=category))+
+      geom_point(aes(y=point))+
+      geom_linerange(aes(ymin=lower,ymax=upper))+
+      scale_y_continuous("Dengue seroprevalence",limits=c(0,1))+
+      xlab("Location during 2017-2018 outbreak")+
+      theme_cowplot()+
+      theme(axis.text.x = element_text(angle = 45,hjust=1))
+
+
+
+
+f2 <- plot_grid(f2a,f2b,rel_widths = c(1,1.1),
+                labels=c("A","B")
+                )
+
+f2      
+
+ggsave(filename="output/figures/figure2.png", plot=f2)
+ggsave(filename="output/figures/figure2.pdf", plot=f2)
+ggsave(filename="output/figures/figure2.tiff", plot=f2)
 
 
 
@@ -413,189 +526,6 @@ summary(model)
 ```
 
 
-
-```{r}
-
-
-fig_df_2c <- long_dataset %>%
-      filter(birthplace_clean %in% c("Australia","New Zealand","USA")) %>%
-      left_join(distinct(wide_dataset,`Final Test Result`,`Record ID`)) %>%
-      mutate(test_result=ifelse(`Final Test Result`=="P","Positive","Negative"))
-
-
-fig2c <- fig_df_2c%>%
-      ggplot(aes(x=factor(year),y=reorder(factor(`Record ID`),yob)))+
-      geom_tile(aes(fill = Former_location_group),col=NA)+
-      geom_tile(data=fig_df_2c %>%
-            filter(year %in% c(2017,2018)),fill=NA,col="black")+
-      facet_grid(test_result~., scales="free_y", space = "free_y")+
-      ylab("Serosurvey Participant ID")+
-      xlab("Year")+
-      scale_fill_brewer("Location", palette="Set2")+
-      theme_cowplot()+
-      theme(axis.text.y = element_blank(),
-            axis.ticks.y = element_blank(),
-            axis.text.x = element_text(angle=45,hjust = 1))
-
-plot_grid(fig2c,labels=c("C"))
-
-# library(cowplot)
-# 
-# fig_df_2b <-long_dataset %>%
-#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
-#       filter(IN_AS)
-# 
-# f2b <- fig_df_2b%>%
-#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
-#       geom_tile(aes(fill=Former_location_group))+
-#       geom_tile(data=fig_df_2b %>%
-#             filter(year %in% c(2017,2018)),fill=NA,col="black")+
-# 
-#       # geom_vline(
-#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
-#       #       color = "black",
-#       #       linewidth = 3  
-#       # )+
-#       facet_grid(`Final Test Result`~., scales="free_y", space = "free_y")+
-#       ylab("Serosurvey Participant ID")+
-#       scale_x_discrete("Year",limits=factor(2007:2023))+
-#       scale_fill_brewer("Location", palette="Set2")+
-#       theme_cowplot()+
-#       theme(axis.text.y = element_blank(),
-#             axis.ticks.y = element_blank(),
-#             axis.text.x = element_text(angle=45,hjust = 1))+
-#       ggtitle("Resided in American Samoa\nduring outbreak")
-# 
-# 
-# fig_df_2c <-long_dataset %>%
-#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
-#       filter(!IN_AS)
-#       
-# 
-# 
-# f2c <- fig_df_2c%>%
-#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
-#       geom_tile(aes(fill=Former_location_group))+
-#       geom_tile(data=fig_df_2c %>%
-#             filter(year %in% c(2017,2018)),fill=NA,col="black")+
-# 
-#       # geom_vline(
-#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
-#       #       color = "black",
-#       #       linewidth = 3  
-#       # )+
-#       facet_grid(`Final Test Result`~., scales="free_y", space = "free_y")+
-#       ylab("Serosurvey Participant ID")+
-#       xlab("Year")+
-#       scale_fill_brewer("Location", palette="Set2")+
-#       theme_cowplot()+
-#       theme(axis.text.y = element_blank(),
-#             axis.ticks.y = element_blank(),
-#             axis.text.x = element_text(angle=45,hjust = 1))+
-#       ggtitle("Did not reside in\nAmerican Samoa during outbreak")
-# 
-# 
-# 
-# plot_grid(f2b+theme(legend.position = "none")
-#                 ,f2c,
-#           rel_widths = c(1,1.35)
-#           )
-
-# 
-# long_dataset %>%
-#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group)) %>%
-#       filter(birth_group=="American Samoa")%>%
-#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
-#       geom_tile(aes(fill=Former_location_group),col="black")+
-#       # geom_vline(
-#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
-#       #       color = "black",
-#       #       linewidth = 3  
-#       # )+
-#       facet_grid(`Final Test Result`~birth_group, scales="free_y", space = "free_y")+
-#       ylab("Serosurvey Participant ID")+
-#       xlab("Year")+
-#       scale_fill_brewer("Location", palette="Set2")+
-#       theme_cowplot()+
-#       theme(axis.text.y = element_blank(),
-#             axis.ticks.y = element_blank(),
-#             axis.text.x = element_text(angle=45,hjust = 1)
-#       )
-# 
-# 
-# long_dataset %>%
-#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group)) %>%
-#       filter(birth_group!="American Samoa")%>%
-#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
-#       geom_tile(aes(fill=Former_location_group),col="black")+
-#       # geom_vline(
-#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
-#       #       color = "black",
-#       #       linewidth = 3  
-#       # )+
-#       facet_grid(`Final Test Result`~birth_group, scales="free_y", space = "free_y")+
-#       ylab("Serosurvey Participant ID")+
-#       xlab("Year")+
-#       scale_fill_brewer("Location", palette="Set2")+
-#       theme_cowplot()+
-#       theme(axis.text.y = element_blank(),
-#             axis.ticks.y = element_blank(),
-#             axis.text.x = element_text(angle=45,hjust = 1)
-#       )
-# 
-# 
-# long_dataset %>%
-#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
-#       filter(`Final Test Result`=="P")%>% 
-#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
-#       geom_tile(aes(fill=Former_location_group))+
-#       geom_tile(data=long_dataset %>%
-#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
-#       filter(`Final Test Result`=="P") %>%
-#             filter(year %in% c(2017,2018)),fill=NA,col="black")+
-# 
-#       # geom_vline(
-#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
-#       #       color = "black",
-#       #       linewidth = 3  
-#       # )+
-#       facet_grid(IN_AS~`Final Test Result`, scales="free_y", space = "free_y")+
-#       ylab("Serosurvey Participant ID")+
-#       xlab("Year")+
-#       scale_fill_brewer("Location", palette="Set2")+
-#       theme_cowplot()+
-#       theme(axis.text.y = element_blank(),
-#             axis.ticks.y = element_blank(),
-#             axis.text.x = element_text(angle=45,hjust = 1))
-# 
-# long_dataset %>%
-#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
-#       filter(`Final Test Result`=="N")%>%
-#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
-#       geom_tile(aes(fill=Former_location_group))+
-#       geom_tile(data=long_dataset %>%
-#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
-#       filter(`Final Test Result`=="N") %>%
-#             filter(year %in% c(2017,2018)),fill=NA,col="black")+
-# 
-#       # geom_vline(
-#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
-#       #       color = "black",
-#       #       linewidth = 3  
-#       # )+
-#       facet_grid(IN_AS~`Final Test Result`, scales="free_y", space = "free_y")+
-#       ylab("Serosurvey Participant ID")+
-#       xlab("Year")+
-#       scale_fill_brewer("Location", palette="Set2")+
-#       theme_cowplot()+
-#       theme(axis.text.y = element_blank(),
-#             axis.ticks.y = element_blank(),
-#             axis.text.x = element_text(angle=45,hjust = 1))
-
-
-
-
-```
 
 
 ## Figure 3
@@ -907,4 +837,200 @@ ggsave(filename = "Figures/figure4.png",
 
 
 
-## Supplement
+### supplementary figures
+
+### Cohort figure
+
+
+```{r}
+
+
+cohort_df <- long_dataset %>%
+      filter(birthplace_clean %in% c("Australia","New Zealand","USA")) %>%
+      mutate(pretty_former=ifelse(Former_location_group=="Non-endemic",
+                                  "Areas with limited\nor no transmission",
+                                  Former_location_group
+                                  ))%>%
+      left_join(distinct(wide_dataset,`Final Test Result`,`Record ID`)) %>%
+      mutate(test_result=ifelse(`Final Test Result`=="P","Positive","Negative"))
+
+
+cohort_fig <- cohort_df%>%
+      ggplot(aes(x=factor(year),y=reorder(factor(`Record ID`),yob)))+
+      geom_tile(aes(fill = pretty_former),col=NA)+
+      geom_tile(data=fig_df_2c %>%
+            filter(year %in% c(2017,2018)),fill=NA,col="black")+
+      facet_grid(test_result~., scales="free_y", space = "free_y")+
+      ylab("Serosurvey Participant ID")+
+      xlab("Year")+
+      scale_fill_brewer("Location", palette="Set2")+
+      theme_cowplot()+
+      theme(axis.text.y = element_blank(),
+            axis.ticks.y = element_blank(),
+            axis.text.x = element_text(angle=45,hjust = 1))
+
+cohort_fig
+
+ggsave(plot=cohort_fig,filename = "output/figures/supplementary_figures/cohort.png")
+ggsave(plot=cohort_fig,filename = "output/figures/supplementary_figures/cohort.pdf")
+ggsave(plot=cohort_fig,filename = "output/figures/supplementary_figures/cohort.tiff")
+
+# plot_grid(fig2c,labels=c("C"))
+
+# library(cowplot)
+# 
+# fig_df_2b <-long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+#       filter(IN_AS)
+# 
+# f2b <- fig_df_2b%>%
+#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+#       geom_tile(aes(fill=Former_location_group))+
+#       geom_tile(data=fig_df_2b %>%
+#             filter(year %in% c(2017,2018)),fill=NA,col="black")+
+# 
+#       # geom_vline(
+#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+#       #       color = "black",
+#       #       linewidth = 3  
+#       # )+
+#       facet_grid(`Final Test Result`~., scales="free_y", space = "free_y")+
+#       ylab("Serosurvey Participant ID")+
+#       scale_x_discrete("Year",limits=factor(2007:2023))+
+#       scale_fill_brewer("Location", palette="Set2")+
+#       theme_cowplot()+
+#       theme(axis.text.y = element_blank(),
+#             axis.ticks.y = element_blank(),
+#             axis.text.x = element_text(angle=45,hjust = 1))+
+#       ggtitle("Resided in American Samoa\nduring outbreak")
+# 
+# 
+# fig_df_2c <-long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+#       filter(!IN_AS)
+#       
+# 
+# 
+# f2c <- fig_df_2c%>%
+#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+#       geom_tile(aes(fill=Former_location_group))+
+#       geom_tile(data=fig_df_2c %>%
+#             filter(year %in% c(2017,2018)),fill=NA,col="black")+
+# 
+#       # geom_vline(
+#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+#       #       color = "black",
+#       #       linewidth = 3  
+#       # )+
+#       facet_grid(`Final Test Result`~., scales="free_y", space = "free_y")+
+#       ylab("Serosurvey Participant ID")+
+#       xlab("Year")+
+#       scale_fill_brewer("Location", palette="Set2")+
+#       theme_cowplot()+
+#       theme(axis.text.y = element_blank(),
+#             axis.ticks.y = element_blank(),
+#             axis.text.x = element_text(angle=45,hjust = 1))+
+#       ggtitle("Did not reside in\nAmerican Samoa during outbreak")
+# 
+# 
+# 
+# plot_grid(f2b+theme(legend.position = "none")
+#                 ,f2c,
+#           rel_widths = c(1,1.35)
+#           )
+
+# 
+# long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group)) %>%
+#       filter(birth_group=="American Samoa")%>%
+#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+#       geom_tile(aes(fill=Former_location_group),col="black")+
+#       # geom_vline(
+#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+#       #       color = "black",
+#       #       linewidth = 3  
+#       # )+
+#       facet_grid(`Final Test Result`~birth_group, scales="free_y", space = "free_y")+
+#       ylab("Serosurvey Participant ID")+
+#       xlab("Year")+
+#       scale_fill_brewer("Location", palette="Set2")+
+#       theme_cowplot()+
+#       theme(axis.text.y = element_blank(),
+#             axis.ticks.y = element_blank(),
+#             axis.text.x = element_text(angle=45,hjust = 1)
+#       )
+# 
+# 
+# long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group)) %>%
+#       filter(birth_group!="American Samoa")%>%
+#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+#       geom_tile(aes(fill=Former_location_group),col="black")+
+#       # geom_vline(
+#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+#       #       color = "black",
+#       #       linewidth = 3  
+#       # )+
+#       facet_grid(`Final Test Result`~birth_group, scales="free_y", space = "free_y")+
+#       ylab("Serosurvey Participant ID")+
+#       xlab("Year")+
+#       scale_fill_brewer("Location", palette="Set2")+
+#       theme_cowplot()+
+#       theme(axis.text.y = element_blank(),
+#             axis.ticks.y = element_blank(),
+#             axis.text.x = element_text(angle=45,hjust = 1)
+#       )
+# 
+# 
+# long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+#       filter(`Final Test Result`=="P")%>% 
+#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+#       geom_tile(aes(fill=Former_location_group))+
+#       geom_tile(data=long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+#       filter(`Final Test Result`=="P") %>%
+#             filter(year %in% c(2017,2018)),fill=NA,col="black")+
+# 
+#       # geom_vline(
+#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+#       #       color = "black",
+#       #       linewidth = 3  
+#       # )+
+#       facet_grid(IN_AS~`Final Test Result`, scales="free_y", space = "free_y")+
+#       ylab("Serosurvey Participant ID")+
+#       xlab("Year")+
+#       scale_fill_brewer("Location", palette="Set2")+
+#       theme_cowplot()+
+#       theme(axis.text.y = element_blank(),
+#             axis.ticks.y = element_blank(),
+#             axis.text.x = element_text(angle=45,hjust = 1))
+# 
+# long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+#       filter(`Final Test Result`=="N")%>%
+#       ggplot(aes(x=factor(year), y=reorder(factor(`Record ID`),yob)))+
+#       geom_tile(aes(fill=Former_location_group))+
+#       geom_tile(data=long_dataset %>%
+#       inner_join(distinct(nonendemies,`Record ID`,`Final Test Result`,birth_group,IN_AS)) %>%
+#       filter(`Final Test Result`=="N") %>%
+#             filter(year %in% c(2017,2018)),fill=NA,col="black")+
+# 
+#       # geom_vline(
+#       #       xintercept = which(levels(factor(f2b$year)) == "2017"),
+#       #       color = "black",
+#       #       linewidth = 3  
+#       # )+
+#       facet_grid(IN_AS~`Final Test Result`, scales="free_y", space = "free_y")+
+#       ylab("Serosurvey Participant ID")+
+#       xlab("Year")+
+#       scale_fill_brewer("Location", palette="Set2")+
+#       theme_cowplot()+
+#       theme(axis.text.y = element_blank(),
+#             axis.ticks.y = element_blank(),
+#             axis.text.x = element_text(angle=45,hjust = 1))
+
+
+
+
+```
