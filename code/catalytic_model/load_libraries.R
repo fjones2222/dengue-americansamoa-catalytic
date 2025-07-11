@@ -9,6 +9,7 @@ require(data.table)
 require(grid)
 require(gridExtra)
 require(ggpubr)
+library(scales)  
 
 
 # Function to estimate FOI based on mean age of infection
