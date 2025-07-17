@@ -21,6 +21,7 @@ library(survey)
 
 expit = function(x) {1/(1+exp(-x))}
 
+cumhaz_to_prob <- function(x) 1-exp(-x)
 
 
 
@@ -463,7 +464,7 @@ f2 <- plot_grid(f2a,f2b,rel_widths = c(1,1.1),
 
 f2      
 
-ggsave(filename="output/figures/figure2.png", plot=f2)
+ggsave(filename="output/figures/figure2.png", plot=f2, width=6.5,height=3.7,scale=1.5)
 ggsave(filename="output/figures/figure2.pdf", plot=f2)
 ggsave(filename="output/figures/figure2.tiff", plot=f2)
 
@@ -658,27 +659,6 @@ pop_groups<- cumlambdas %>%
       ) 
 
 
-f4b_data <- pop_groups %>%
-      select(-median) %>%
-      gather(type, value, -c(year, .draw)) %>%
-      group_by(type, year) %>%
-      summarise(
-            median = median(value),
-            lb = quantile(value, 0.025),
-            ub = quantile(value, 0.975),
-            .groups = "drop"
-      )
-
-# Fix and relabel data for plot
-f4b_table <- f4b_data %>%
-      mutate(
-            year = 2023 - 64 + year,
-            Type = factor(type, levels = c("susc", "mono", "the_rest"),
-                          labels = c("DENV-naïve", "Primary", "Multiple"))
-      ) %>%
-      filter(year >= 2008) %>%
-      select(year, Type, median, lb, ub) %>%
-      arrange(year, Type)
 
 # Line plot with ribbon
 
@@ -699,11 +679,11 @@ draws3_2023 <- modelfit %>%
 
 ```{r eval=FALSE}
 
-write_rds(draws1,"data/generated_data/figure4/draws1.rds")
-write_rds(f4a_p2_df,"data/generated_data/figure4/f4a_p2_df.rds")
-write_rds(pop_groups,"data/generated_data/figure4/pop_groups.rds")
-write_rds(cumlambdas,"data/generated_data/figure4/cumlambdas.rds")
-write_rds(draws3_2023,"data/generated_data/figure4/draws3_2023.rds")
+# write_rds(draws1,"data/generated_data/figure4/draws1.rds")
+# write_rds(f4a_p2_df,"data/generated_data/figure4/f4a_p2_df.rds")
+# write_rds(pop_groups,"data/generated_data/figure4/pop_groups.rds")
+# write_rds(cumlambdas,"data/generated_data/figure4/cumlambdas.rds")
+# write_rds(draws3_2023,"data/generated_data/figure4/draws3_2023.rds")
 
 ```
 
@@ -721,8 +701,15 @@ draws3_2023 <- read_rds("data/generated_data/figure4/draws3_2023.rds")
 
 
 
+#regular FOI
 draws1
-f4a_p2_df
+
+#discrete hazard
+draws1 %>%
+      mutate(across(median:upper, .fns= ~ cumhaz_to_prob(.x)))
+      
+f4a_p2_df%>%
+      mutate(across(.value:.upper, .fns= ~ cumhaz_to_prob(.x)))
 
 f4b_table %>%
       filter(year==2016)
@@ -745,9 +732,10 @@ draws3_2023 %>% filter(median==max(median))
 ```{r}
 
 
+
 f4a_p1 <- ggplot(draws1, aes(x = actual_year)) +
-      geom_point(aes(y = median)) +
-      geom_linerange(aes(ymin = lower, ymax = upper)) +
+      geom_point(aes(y = cumhaz_to_prob(median))) +
+      geom_linerange(aes(ymin = cumhaz_to_prob(lower), ymax = cumhaz_to_prob(upper))) +
       scale_x_continuous("Year",breaks = 2008:2023) +  # Show all years
       theme_minimal() +  # Using minimal theme
       theme(
@@ -759,13 +747,17 @@ f4a_p1 <- ggplot(draws1, aes(x = actual_year)) +
       )+ 
       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
                 scale_y_continuous("Force of Infection",
-                                   limits=c(0,0.8)
+                                   limits=c(0,0.6)
                                    )
 
 f4a_p2<- f4a_p2_df%>%
-      ggplot(aes(x=setting,y=.value))+
+      mutate(setting=ifelse(setting=="Non-endemic",
+                               "Areas with\nlimited or no\ntransmission ",
+                             "Other Tropical\nIslands"
+                            ))%>%
+      ggplot(aes(x=fct_rev(setting),y=cumhaz_to_prob(.value)))+
       geom_point()+
-      geom_linerange(aes(ymin=.lower,ymax=.upper))+
+      geom_linerange(aes(ymin=cumhaz_to_prob(.lower),ymax=cumhaz_to_prob(.upper)))+
       theme_minimal()+
       xlab("Setting") +  # Using minimal theme
       theme(
@@ -777,10 +769,34 @@ f4a_p2<- f4a_p2_df%>%
       )+ 
       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
                 scale_y_continuous("Force of Infection",
-                                   limits=c(0,0.8)
+                                   limits=c(0,0.6)
                                    )
 
 
+f4b_data <- pop_groups %>%
+      select(-median) %>%
+      gather(type, value, -c(year, .draw)) %>%
+      group_by(type, year) %>%
+      summarise(
+            median = (median(value)),
+            lb = (quantile(value, 0.025)),
+            ub = (quantile(value, 0.975)),
+            .groups = "drop"
+      )
+
+# Fix and relabel data for plot
+f4b_table <- f4b_data %>%
+      mutate(
+            year = 2023 - 64 + year,
+            Type = factor(type, levels = c("susc", "mono", "the_rest"),
+                          labels = c("DENV-naïve", "Primary", "Multiple"))
+      ) %>%
+      filter(year >= 2008) %>%
+      select(year, Type, median, lb, ub) %>%
+      arrange(year, Type)
+
+
+library(scales)
 
 f4b <- ggplot(f4b_table, aes(x = year, y = median, color = Type, fill = Type)) +
       geom_line(linewidth = 1) +
@@ -841,7 +857,7 @@ figure4 <- plot_grid(f4a_p1,f4a_p2,
       axis="bl",
        label_size = 12,   
        labels = c("A","B","C","","D",""),
-      rel_widths = c(3,1)
+      rel_widths = c(3,1.5)
 
 )
           
@@ -898,7 +914,7 @@ cohort_df <- long_dataset %>%
 cohort_fig <- cohort_df%>%
       ggplot(aes(x=factor(year),y=reorder(factor(`Record ID`),yob)))+
       geom_tile(aes(fill = pretty_former),col=NA)+
-      geom_tile(data=fig_df_2c %>%
+      geom_tile(data=cohort_df %>%
             filter(year %in% c(2017,2018)),fill=NA,col="black")+
       facet_grid(test_result~., scales="free_y", space = "free_y")+
       ylab("Serosurvey Participant ID")+
@@ -1096,12 +1112,12 @@ all_draws %>%
             population=="latter" ~ "All participants,\nlatter location used",
             population=="former" ~ "All participants,\nformer location used"
       ))%>%
-      ggplot(aes(x=factor(year),y=lambda*4,col=Population))+
+      ggplot(aes(x=factor(year),y=cumhaz_to_prob(lambda*4),col=Population))+
       geom_point(aes(col=Population),
                  position = position_dodge(0.5)
                  )+
       geom_linerange(aes(col=Population,
-                         ymin=.lower*4,ymax = .upper*4),
+                         ymin=cumhaz_to_prob(.lower*4),ymax = cumhaz_to_prob(.upper*4)),
                      position = position_dodge(0.5)
                      )+
       xlab("Year")+
@@ -1128,10 +1144,10 @@ read_rds(file="output/model_fits/20250603_2241_former_combo1718.rds")%>%
       filter(year>=2009)%>%
       group_by(newyear)%>%
       median_qi() %>%
-      ggplot(aes(x=newyear,y=lambda*4))+
+      ggplot(aes(x=newyear,y=cumhaz_to_prob(lambda*4)))+
       geom_point()+
-      geom_linerange(aes(ymin=lambda.lower*4,ymax = lambda.upper*4))+
-      scale_y_continuous(limits=c(0,1.5))+
+      geom_linerange(aes(ymin=cumhaz_to_prob(lambda.lower*4),ymax =cumhaz_to_prob( lambda.upper*4)))+
+      scale_y_continuous(limits=c(0,0.75))+
       xlab("Year")+ylab("Force of Infection")+
       theme_cowplot()+
       theme(axis.text.x = element_text(angle = 45,hjust=1))
@@ -1177,7 +1193,62 @@ read_rds("data/generated_data/supplement/pop_groups_supplement.rds") %>%
 ```
 
 
+#### Table 2. Relative risk estimate
 
+
+```{r}
+
+modelobject<- read_rds(file="output/model_fits/20250603_2142_former.rds")
+
+
+
+med_ci <- function(param) {
+      
+      med <-round(median(param),2)
+      lb  <- round(quantile(param,0.025),2)
+      ub  <- round(quantile(param,0.975),2)
+
+      glue::glue("{med} ({lb}–{ub})")
+}
+  
+
+difference_df <- modelobject$fit %>%
+      spread_draws(lambda[year],logit_lambda_end,logit_lambda_nonend)%>%
+      mutate(actual_year = 2023 + (year - 64)) %>%
+      filter(actual_year >= 2008)%>%
+      mutate(
+             lambda=cumhaz_to_prob(4*lambda),
+             lambda_end=cumhaz_to_prob(4*expit(logit_lambda_end)),
+             lambda_nonend=cumhaz_to_prob(4*expit(logit_lambda_nonend))
+             )%>%
+      mutate(endemic_diff=lambda-lambda_end,
+             nonendemic_diff=lambda-lambda_nonend
+             ) %>%
+      group_by(actual_year) %>% 
+      summarise(
+            AS_FOI=med_ci(lambda),
+            END_FOI=med_ci(lambda_end),
+            END_DIFF=med_ci(endemic_diff),
+            NONEND_FOI=med_ci(lambda_nonend),
+            NONEND_DIFF=med_ci(nonendemic_diff),
+      ) 
+
+
+difference_df%>%
+      mutate(actual_year=as.character(actual_year))%>%
+      rename(
+            Year=actual_year,
+            `American Samoa`=AS_FOI,
+            `Other Tropical Islands`=END_FOI,
+            `Areas with limited nor no transmission`=NONEND_FOI
+      ) %>%
+      flextable::flextable() %>%
+      flextable::autofit() %>%
+      flextable::save_as_docx(path="output/figures/supplementary_figures/difftable.docx")
+
+
+
+```
 
 
 
