@@ -469,9 +469,9 @@ ggsave(filename="output/figures/figure2.pdf", plot=f2)
 ggsave(filename="output/figures/figure2.tiff", plot=f2)
 
 
-
-model <- svyglm(sero_binary ~ ob_location, design = as.dsn, family = quasibinomial())
-summary(model)
+svyglm(sero_binary ~ birth_group, design = as.dsn, family = quasibinomial()) %>%
+      summary()
+svyglm(sero_binary ~ ob_location, design = as.dsn, family = quasibinomial()) %>% summary()
 
 
 # #Dataset 2: Residency Figures 
