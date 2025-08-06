@@ -725,6 +725,31 @@ draws3_2023 %>% filter(median==max(median))
 
 
 
+modelfit %>%
+      spread_draws(lambda[year])%>%
+      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
+      filter(actual_year %in% c())  %>%
+      group_by(year) %>%
+      summarize(
+            median = median(lambda * 4),
+            lower = quantile(lambda * 4, 0.25),
+            upper = quantile(lambda * 4, 0.75),
+            .groups = 'drop'
+      )
+
+
+pop_groups%>%
+      mutate(actual_year = 2023 + (year - 64)) %>%
+      filter(actual_year %in% c(2016,2018,2023)) %>% 
+      group_by(.draw) %>%
+      mutate(diff_2016=susc-susc[actual_year==2016],
+             ratio_2016=susc/susc[actual_year==2016]
+             )%>%
+      group_by(actual_year) %>%
+      summarise(median(ratio_2016),
+                quantile(ratio_2016,0.025),
+              quantile(ratio_2016,0.975)
+                )
 
 ```
 
@@ -798,7 +823,7 @@ f4b_table <- f4b_data %>%
 
 library(scales)
 
-f4b <- ggplot(f4b_table, aes(x = year, y = median, color = Type, fill = Type)) +
+f4b <- ggplot(f4b_table, aes(x = year, y = median, color = fct_rev(Type), fill = fct_rev(Type))) +
       geom_line(linewidth = 1) +
       geom_ribbon(aes(ymin = lb, ymax = ub), alpha = 0.4, color = NA) +
       
@@ -816,6 +841,8 @@ f4b <- ggplot(f4b_table, aes(x = year, y = median, color = Type, fill = Type)) +
             color = "Infection History",
             fill = "Infection History"
       ) +
+       scale_color_brewer(palette = "Dark2")+
+      scale_fill_brewer(palette = "Dark2")+
       theme_minimal(base_size = 12) +
       theme(
             legend.title = element_text(face = "bold"),
@@ -1177,9 +1204,11 @@ read_rds("data/generated_data/supplement/pop_groups_supplement.rds") %>%
             year<2018 ~ as.character(year-1)
       )) %>%
       filter(year>=2009)%>%
-      ggplot(aes(x=newyear,col=Type,fill=Type,group=Type))+
+      ggplot(aes(x=newyear,col=fct_rev(Type),fill=fct_rev(Type),group=fct_rev(Type)))+
       geom_line(aes(y=median))+
       geom_ribbon(aes(ymin=lb,ymax=ub),alpha=0.5,col=NA)+
+      scale_color_brewer(palette = "Dark2")+
+      scale_fill_brewer(palette = "Dark2")+
       labs(
             #title = "Trends in Population Immunity Over Time",
             x = "Year",
