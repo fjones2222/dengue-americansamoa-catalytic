@@ -389,7 +389,7 @@ f2_df <- bind_rows(overall_df,birth_df,obloc_df) %>%
             ),
             labels=c("Overall",
                      "American\nSamoa",
-                     "Other Tropical\nIslands",
+                     "Other tropical\nPacific Islands",
                      "Areas with\nlimited or no\ntransmission ",
                      "Multiple\nlocations"
                      )
@@ -408,7 +408,7 @@ survey_dataset %>%
             ),
             labels=c("Overall",
                      "American\nSamoa",
-                     "Other Tropical\nIslands",
+                     "Other tropical\nPacific Islands",
                      "Areas with\nlimited or no\ntransmission ",
                      "Multiple\nlocations"
                      )
@@ -437,7 +437,7 @@ survey_dataset %>%
             ),
             labels=c("Overall",
                      "American\nSamoa",
-                     "Other Tropical\nIslands",
+                     "Other tropical\nPacific Islands",
                      "Areas with\nlimited or no\ntransmission ",
                      "Multiple\nlocations"
                      )
@@ -545,7 +545,7 @@ modelobject<- former <- read_rds(file="output/model_fits/20250603_2142_former.rd
 
 
 f3 <- cowplot::plot_grid(
-      former$p1 +cowplot::theme_cowplot(),
+      former$p1 +cowplot::theme_cowplot()+scale_x_continuous(name='Birth year of serosurvey participant',breaks=9:17,labels=2015:2007),     
       cowplot::plot_grid(former$p2 +cowplot::theme_cowplot(),
                          former$p3 +cowplot::theme_cowplot(),nrow = 1,
                          labels=c("B","C")
@@ -554,9 +554,9 @@ f3 <- cowplot::plot_grid(
       )
 
 
-f3 
+f3
 
-ggsave(filename="output/figures/figure3.png", plot=f3)
+ggsave(filename="output/figures/figure3.png", plot=f3, height=5)
 ggsave(filename="output/figures/figure3.pdf", plot=f3)
 ggsave(filename="output/figures/figure3.tiff", plot=f3)
 
