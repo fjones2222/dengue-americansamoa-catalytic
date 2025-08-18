@@ -1147,6 +1147,7 @@ all_draws %>%
                          ymin=cumhaz_to_prob(.lower*4),ymax = cumhaz_to_prob(.upper*4)),
                      position = position_dodge(0.5)
                      )+
+      scale_color_viridis_d()+
       xlab("Year")+
       ylab("Force of Infection")+
       theme_cowplot()
