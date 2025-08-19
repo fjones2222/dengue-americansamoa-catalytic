@@ -46,8 +46,10 @@ survey_data <- read_csv("data/raw_data/AmericanSamoaDengueS_DATA_LABELS_2025-01-
       mutate(birth_group = case_when(
             birthplace_clean == "Missing" ~ NA_character_,
             birthplace_clean == "American Samoa" ~ "American Samoa",
-            birthplace_clean %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines", "Hawaii") ~ "Pacific Islands",
-            birthplace_clean %in% c("New Zealand", "USA", "Australia") ~ "New Zealand, USA and Australia",
+            # birthplace_clean %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines", "Hawaii") ~ "Pacific Islands",
+            # birthplace_clean %in% c("New Zealand", "USA", "Australia") ~ "New Zealand, USA and Australia",
+            birthplace_clean %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines") ~ "Pacific Islands",
+            birthplace_clean %in% c("New Zealand", "USA", "Australia","Hawaii") ~ "New Zealand, USA and Australia",
             TRUE ~ "Other"
       ))#%>%
       
@@ -533,15 +535,19 @@ long_dataset <-  combination2_sep %>%
       mutate(Former_location_group = case_when(
             Former_location == "Missing" ~ NA_character_,
             Former_location == "American Samoa" ~ "American Samoa",
-            Former_location %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines", "Hawaii") ~ "Pacific Islands",
-            Former_location %in% c("New Zealand", "USA", "Australia") ~ "Non-endemic",
+            # Former_location %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines", "Hawaii") ~ "Pacific Islands",
+            # Former_location %in% c("New Zealand", "USA", "Australia") ~ "Non-endemic",
+            Former_location %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines") ~ "Pacific Islands",
+            Former_location %in% c("New Zealand", "USA", "Australia","Hawaii") ~ "Non-endemic",
             TRUE ~ Former_location
       ))%>%
       mutate(Latter_location_group = case_when(
             Latter_location == "Missing" ~ NA_character_,
             Latter_location == "American Samoa" ~ "American Samoa",
-            Latter_location %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines", "Hawaii") ~ "Pacific Islands",
-            Latter_location %in% c("New Zealand", "USA", "Australia") ~ "Non-endemic",
+            # Latter_location %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines", "Hawaii") ~ "Pacific Islands",
+            # Latter_location %in% c("New Zealand", "USA", "Australia") ~ "Non-endemic",
+            Latter_location %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines") ~ "Pacific Islands",
+            Latter_location %in% c("New Zealand", "USA", "Australia", "Hawaii") ~ "Non-endemic",
             TRUE ~ Latter_location
       ))
 

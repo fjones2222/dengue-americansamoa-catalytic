@@ -7,10 +7,10 @@ library(tidybayes)
 # setwd("code/catalytic_model")
 
 
-everyone <- read_rds(file="output/model_fits/20250603_2134_everyone.rds")
-lifelong <- read_rds(file="output/model_fits/20250603_2138_lifelong.rds")
-former <- read_rds(file="output/model_fits/20250603_2142_former.rds")
-latter <- read_rds(file="output/model_fits/20250603_2146_latter.rds")
+everyone <- read_rds(file="output/model_fits/20250818_1752_everyone.rds")
+lifelong <- read_rds(file="output/model_fits/20250818_181_lifelong.rds")
+former <- read_rds(file="output/model_fits/20250818_188_former.rds")
+latter <- read_rds(file="output/model_fits/20250818_1831_latter.rds")
 
 
 # everyone$fit %>% rhat() %>% hist()
@@ -18,7 +18,7 @@ latter <- read_rds(file="output/model_fits/20250603_2146_latter.rds")
 # former$fit %>% rhat() %>% hist()
 # latter$fit %>% rhat() %>% hist()
 # 
-# everyone$fit %>% shinystan::launch_shinystan()
+everyone$fit %>% shinystan::launch_shinystan()
 # 
 # former$combined_plot
 
@@ -107,7 +107,10 @@ write_rds(all_draws,"data/generated_data/supplement/all_draws.rds")
 #       geom_ribbon(aes(ymin=.lower*serotypes,ymax = .upper*serotypes),alpha=0.1,col=NA)
 
 
-combo_fit <- read_rds(file="output/model_fits/20250603_2241_former_combo1718.rds")
+combo_fit <- read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds")
+
+shinystan::launch_shinystan(combo_fit)
+
 # combo_fit%>% 
 #       spread_draws(lambda[year]) %>%
 #       ungroup()%>%

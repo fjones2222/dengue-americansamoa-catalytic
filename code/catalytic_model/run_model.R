@@ -134,29 +134,24 @@ as_denguemod = run_FRAILTYregression_model_case_ss(compiled_FRAILTYmodel,
 )
 
 
-as_denguemod = run_FRAILTYregression_model_case_ss(compiled_FRAILTYmodel,
-                                                   serosurv_data=this_dataset, #serosurv_data,
-                                                   case_data,
-                                                   pop_data,
-                                                   lr_bound,
-                                                   ur_bound,
-                                                   svyweights=1,
-                                                   c(),
-                                                   c(),
-                                                   maternal_immunity,#T_lambda,
-                                                   n_serotypes,T,glue::glue('_case2016to2022_{pop}_{Sys.Date()}'),
-                                                   number_of_chains = 4
-)
-
-
-
-
 
 write_rds(as_denguemod,file = glue::glue('output/model_fits/{format(Sys.time(), "%Y%m%d")}_{hour(Sys.time())}{minute(Sys.time())}_former_combo1718.rds'))
 
 
 
-
+# as_denguemod = run_FRAILTYregression_model_case_ss(compiled_FRAILTYmodel,
+#                                                    serosurv_data=this_dataset, #serosurv_data,
+#                                                    case_data,
+#                                                    pop_data,
+#                                                    lr_bound,
+#                                                    ur_bound,
+#                                                    svyweights=1,
+#                                                    c(),
+#                                                    c(),
+#                                                    maternal_immunity,#T_lambda,
+#                                                    n_serotypes,T,glue::glue('_case2016to2022_{pop}_{Sys.Date()}'),
+#                                                    number_of_chains = 4
+# )
 
 
 
