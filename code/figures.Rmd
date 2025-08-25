@@ -214,13 +214,13 @@ wide_dataset %>%
                 )
       
 
-# wide_dataset %>% 
-#       count(School,birth_group) %>%
-#       group_by(School)%>%
-#       mutate(percent=n/sum(n))%>%
-#       ggplot(aes(y=School,x=birth_group))+
-#       geom_tile(aes(fill = percent))+
-#       scale_fill_distiller(palette="Blues",direction = 1)
+
+
+wide_dataset %>%
+      left_join(neccesary_years)%>%
+      summarise(mean(years_AS==n_years))
+
+
       
 
 
@@ -387,10 +387,10 @@ f2_df <- bind_rows(overall_df,birth_df,obloc_df) %>%
             "Non-endemic",
             "Mixed"
             ),
-            labels=c("Overall",
+             labels=c("Overall",
                      "American\nSamoa",
-                     "Other tropical\nPacific Islands",
-                     "Areas with\nlimited or no\ntransmission ",
+                     "Endemic\nareas",
+                     "Non-endemic\nareas",
                      "Multiple\nlocations"
                      )
             
@@ -408,8 +408,8 @@ survey_dataset %>%
             ),
             labels=c("Overall",
                      "American\nSamoa",
-                     "Other tropical\nPacific Islands",
-                     "Areas with\nlimited or no\ntransmission ",
+                     "Endemic\nareas",
+                     "Non-Endemic\nareas",
                      "Multiple\nlocations"
                      )
             
@@ -437,8 +437,8 @@ survey_dataset %>%
             ),
             labels=c("Overall",
                      "American\nSamoa",
-                     "Other tropical\nPacific Islands",
-                     "Areas with\nlimited or no\ntransmission ",
+                     "Endemic\nareas",
+                     "Non-Endemicnareas",
                      "Multiple\nlocations"
                      )
             
@@ -468,6 +468,8 @@ ggsave(filename="output/figures/figure2.png", plot=f2, width=6.5,height=3.7,scal
 ggsave(filename="output/figures/figure2.pdf", plot=f2)
 ggsave(filename="output/figures/figure2.tiff", plot=f2)
 
+
+f2_df
 
 svyglm(sero_binary ~ birth_group, design = as.dsn, family = quasibinomial()) %>%
       summary()
@@ -948,6 +950,33 @@ modelobject$fit%>%
       # geom_ribbon(aes(ymin=lb,ymax=ub),alpha=0.5,col=NA)+
       geom_line()
 
+
+
+modelobject$fit%>%
+      spread_draws(mono[age, year]) %>%
+      filter(year %in% c(8)) %>%
+      mutate(ag=cut(age,seq(0,50,5))) %>%
+      group_by(ag,.draw,year)%>%
+      summarise(mono=mean(mono)) %>%
+      group_by(ag,year)%>%
+      summarise(
+                  median = median(mono),
+                  lb = quantile(mono, 0.025),
+                  ub = quantile(mono, 0.975),
+                  .groups = 'drop'
+            ) %>%
+      ggplot(aes(x=ag,y=median))+
+      geom_point()+
+      geom_linerange(aes(ymin=lb,ymax=ub))
+
+
+
+
+
+
+
+
+
 figure4 <- plot_grid(f4a_p1,f4a_p2,
           f4b+theme(legend.position = "none"),
                 get_legend(f4b),
@@ -1005,12 +1034,15 @@ ggsave(filename = "output/figures/figure4.tiff",
 cohort_df <- long_dataset %>%
       filter(birthplace_clean %in% c("Australia","New Zealand","USA","Hawaii")) %>%
       mutate(pretty_former=ifelse(Former_location_group=="Non-endemic",
-                                  "Areas with limited\nor no transmission",
+                                  "Non-endemic area",
                                   Former_location_group
                                   ))%>%
       left_join(distinct(wide_dataset,`Final Test Result`,`Record ID`)) %>%
       mutate(test_result=ifelse(`Final Test Result`=="P","Positive","Negative"))
 
+cohort_df %>%
+      distinct(`Record ID`,`Final Test Result`) %>%
+      count(`Final Test Result`)
 
 cohort_fig <- cohort_df%>%
       ggplot(aes(x=factor(year),y=reorder(factor(`Record ID`),yob)))+
