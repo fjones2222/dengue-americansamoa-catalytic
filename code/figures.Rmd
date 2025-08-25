@@ -439,15 +439,16 @@ modelobject<- former <- read_rds(file="output/model_fits/20250818_188_former.rds
 
 f3 <- cowplot::plot_grid(
       former$p1 +cowplot::theme_cowplot()+scale_x_continuous(name='Birth year of serosurvey participant',breaks=9:17,labels=2015:2007),     
-      cowplot::plot_grid(former$p2 +cowplot::theme_cowplot(),
+      cowplot::plot_grid(former$p2 +
+                               scale_color_manual(values = "red")+
+                         cowplot::theme_cowplot(),
                          former$p3 +cowplot::theme_cowplot(),nrow = 1,
                          labels=c("B","C")
+                         
       ), ncol=1,
       labels=c("A","")
       )
 
-
-f3
 
 ggsave(filename="output/figures/figure3.png", plot=f3, height=5)
 ggsave(filename="output/figures/figure3.pdf", plot=f3)
@@ -456,10 +457,10 @@ ggsave(filename="output/figures/figure3.tiff", plot=f3)
 
 ```
 
-## Main Text: Dynamics and immune landscape of dengue in American Samoa from the catalytic model
 
-```{r}
+*calcs for catalytic model results*
 
+```{r f4-calcs, eval=FALSE}
 
 modelfit<-modelobject$fit
 
@@ -480,15 +481,13 @@ draws1 <- modelfit %>%
 
 
 
-f4a_p2_df
-
 
 
 f4a_p2_df <- modelfit%>%
       gather_draws(logit_lambda_nonend,logit_lambda_end) %>%
       median_qi() %>%
       mutate(setting=ifelse(.variable=="logit_lambda_nonend",
-                            "Non-endemic","Pacific Islands"
+                            "Non-endemic","Endemic"
                             )) %>%
       mutate(.value=4*expit(.value),
              .lower  =4*expit(.lower),
@@ -510,43 +509,10 @@ f4a_p2_df <- modelfit%>%
       mutate(setting="American Samoa")
 )
 
-modelfit%>%
-      gather_draws(logit_lambda_nonend,logit_lambda_end,lambda[year]) %>%
-      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
-      filter(actual_year >= 2008 |is.na(year))%>%
-      group_by(.draw,.variable)%>%
-      summarise(.value=mean(.value)) %>%
-      mutate(.value=ifelse(.variable=="lambda",
-                           cumhaz_to_prob(4*.value),
-                           cumhaz_to_prob(4*expit(.value))))%>%
-      group_by(.draw)%>%
-      mutate(diff=.value[.variable=="lambda"]-.value)%>%
-      group_by(.variable)%>%
-      summarize(
-            .lower = quantile(.value, 0.025),
-            .upper = quantile(.value, 0.975),
-            .value = median(.value),
-            
-            med_diff=median(diff),
-            lb_diff=quantile(diff, 0.025),
-            ub_diff=quantile(diff, 0.975),
-            .groups = 'drop'
-      ) %>%
-      mutate(setting=factor(.variable,labels=c("American Samoa","Endemic","Non-endemic")) )
-      
-      
-lambdas <- former$fit %>% spread_draws(lambda[t]) 
-
-```
-
-
-```{r f4-calcs, eval=FALSE}
-
-
-
 ages <- 1:49
 times <-1:64
 
+lambdas <- former$fit %>% spread_draws(lambda[t]) 
 cumlambdas <- data.frame()
 
 for(i in times){
@@ -597,16 +563,31 @@ pop_groups<- cumlambdas %>%
 # Line plot with ribbon
 
 #this is for year 2023 
-draws3_2023 <- modelfit %>%
+draws3_2023 <- modelobject$fit%>%
       spread_draws(mono[age, year]) %>%
-      filter(year == 8) %>%
-      group_by(age) %>%
+      filter(year %in% c(8)) %>%
+      mutate(ag=cut(age,seq(0,50,5))) %>%
+      group_by(ag,.draw,year)%>%
+      summarise(mono=mean(mono)) %>%
+      group_by(ag,year)%>%
       summarise(
-            median = median(mono),
-            lb = quantile(mono, 0.025),
-            ub = quantile(mono, 0.975),
-            .groups = 'drop'
-      )
+                  median = median(mono),
+                  lb = quantile(mono, 0.025),
+                  ub = quantile(mono, 0.975),
+                  .groups = 'drop'
+            ) 
+      
+      
+# draws3_2023 <- modelobject$fit%>%
+      # spread_draws(mono[age, year]) %>%
+      # filter(year == 8) %>%
+      # group_by(age) %>%
+      # summarise(
+      #       median = median(mono),
+      #       lb = quantile(mono, 0.025),
+      #       ub = quantile(mono, 0.975),
+      #       .groups = 'drop'
+      # )
 
 
 # write_rds(draws1,"data/generated_data/figure4/draws1.rds")
@@ -617,9 +598,41 @@ draws3_2023 <- modelfit %>%
 
 ```
 
-## Figure 4: Reconstruction of dengue transmission and risk from catalytic model.  
+
+
+## Main Text: Dynamics and immune landscape of dengue in American Samoa from the catalytic model
 
 ```{r}
+
+
+modelfit<-modelobject$fit
+
+modelfit%>%
+      gather_draws(logit_lambda_nonend,logit_lambda_end,lambda[year]) %>%
+      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
+      filter(actual_year >= 2008 |is.na(year))%>%
+      group_by(.draw,.variable)%>%
+      summarise(.value=mean(.value)) %>%
+      mutate(.value=ifelse(.variable=="lambda",
+                           cumhaz_to_prob(4*.value),
+                           cumhaz_to_prob(4*expit(.value))))%>%
+      group_by(.draw)%>%
+      mutate(diff=.value[.variable=="lambda"]-.value)%>%
+      group_by(.variable)%>%
+      summarize(
+            .lower = quantile(.value, 0.025),
+            .upper = quantile(.value, 0.975),
+            .value = median(.value),
+            
+            med_diff=median(diff),
+            lb_diff=quantile(diff, 0.025),
+            ub_diff=quantile(diff, 0.975),
+            .groups = 'drop'
+      ) %>%
+      mutate(setting=factor(.variable,labels=c("American Samoa","Endemic","Non-endemic")) )
+      
+      
+
 
 
 draws1 <- read_rds("data/generated_data/figure4/draws1.rds")
@@ -627,9 +640,6 @@ f4a_p2_df <- read_rds("data/generated_data/figure4/f4a_p2_df.rds")
 pop_groups <- read_rds("data/generated_data/figure4/pop_groups.rds")
 cumlambdas <- read_rds("data/generated_data/figure4/cumlambdas.rds")
 draws3_2023 <- read_rds("data/generated_data/figure4/draws3_2023.rds")
-
-
-
 
 
 #regular FOI
@@ -684,9 +694,22 @@ pop_groups%>%
 
 
 
+```
+
+
+## Figure 4: Reconstruction of dengue transmission and risk from catalytic model.  
+
+```{r}
+
+
+f4_size <-2.5
+f4_lwd <- 1
+f4_alpha <- 0.7
+
 f4a_p1 <- ggplot(draws1, aes(x = actual_year)) +
-      geom_point(aes(y = cumhaz_to_prob(median))) +
-      geom_linerange(aes(ymin = cumhaz_to_prob(lower), ymax = cumhaz_to_prob(upper))) +
+      geom_hline(yintercept = 0,col="grey90")+
+      geom_point(aes(y = cumhaz_to_prob(median)),size=f4_size,alpha=f4_alpha) +
+      geom_linerange(aes(ymin = cumhaz_to_prob(lower), ymax = cumhaz_to_prob(upper)),lwd=f4_lwd) +
       scale_x_continuous("Year",breaks = 2008:2023) +  # Show all years
       theme_minimal() +  # Using minimal theme
       theme(
@@ -697,18 +720,18 @@ f4a_p1 <- ggplot(draws1, aes(x = actual_year)) +
             axis.line = element_line(color = "black")  # Add axis lines
       )+ 
       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
-                scale_y_continuous("Force of Infection",
+                scale_y_continuous("Annual\nForce of Infection",
                                    limits=c(0,0.7)
                                    )
 
 f4a_p2<- f4a_p2_df%>%
-      # mutate(setting=ifelse(setting=="Non-endemic",
-      #                          "Areas with\nlimited or no\ntransmission ",
-      #                        "Other Tropical\nIslands"
+      # mutate(setting=ifelse(setting=="American Samoa",
+      #                       "American\nSamoa",setting
       #                       ))%>%
       ggplot(aes(x=(setting),y=cumhaz_to_prob(.value)))+
-      geom_point()+
-      geom_linerange(aes(ymin=cumhaz_to_prob(.lower),ymax=cumhaz_to_prob(.upper)))+
+      geom_hline(yintercept = 0,col="grey90")+
+      geom_point(size=f4_size,alpha=f4_alpha)+
+      geom_linerange(aes(ymin=cumhaz_to_prob(.lower),ymax=cumhaz_to_prob(.upper)),lwd=f4_lwd)+
       theme_minimal()+
       xlab("Setting") +  # Using minimal theme
       theme(
@@ -719,7 +742,7 @@ f4a_p2<- f4a_p2_df%>%
             axis.line = element_line(color = "black")  # Add axis lines
       )+ 
       theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
-                scale_y_continuous("Force of Infection",
+                scale_y_continuous("Average\nForce of Infection",
                                    limits=c(0,0.6)
                                    )
 
@@ -740,7 +763,7 @@ f4b_table <- f4b_data %>%
       mutate(
             year = 2023 - 64 + year,
             Type = factor(type, levels = c("susc", "mono", "the_rest"),
-                          labels = c("DENV-naïve", "Primary", "Multiple"))
+                          labels = c("Naïve", "Only once", "Multiple times"))
       ) %>%
       filter(year >= 2008) %>%
       select(year, Type, median, lb, ub) %>%
@@ -750,7 +773,7 @@ f4b_table <- f4b_data %>%
 library(scales)
 
 f4b <- ggplot(f4b_table, aes(x = year, y = median, color = fct_rev(Type), fill = fct_rev(Type))) +
-      geom_line(linewidth = 1) +
+      geom_line(linewidth = f4_lwd) +
       geom_ribbon(aes(ymin = lb, ymax = ub), alpha = 0.4, color = NA) +
       
       # Add year breaks on x-axis
@@ -763,9 +786,9 @@ f4b <- ggplot(f4b_table, aes(x = year, y = median, color = fct_rev(Type), fill =
       
       labs(
             x = "Year",
-            y = "Proportion of Population",
-            color = "Infection History",
-            fill = "Infection History"
+            y = "% of population",
+            color = "DENV Infection\nHistory",
+            fill = "DENV Infection\nHistory"
       ) +
        scale_color_brewer(palette = "Dark2")+
       scale_fill_brewer(palette = "Dark2")+
@@ -784,55 +807,40 @@ f4b <- ggplot(f4b_table, aes(x = year, y = median, color = fct_rev(Type), fill =
             
       )
 
-f4c <- ggplot(draws3_2023, aes(x = age, y = median)) +
-      geom_line() +
-      geom_ribbon(alpha = 0.5, aes(ymin = lb, ymax = ub)) +
-      labs(x = "Age (years) in 2023",
-           y = "Proportion of population\nwith one previous DENV infection") +
-      scale_y_continuous(labels = scales::percent_format(), limits = c(0, 0.5)) + 
-      scale_x_continuous(limits = c(0, 50), breaks = seq(0, 50, 5)) +  # Set limits and breaks
+
+
+
+
+f4c <- draws3_2023 %>%
+      mutate(age_group=factor(
+            ag,
+            labels=c(
+                  "1-5",
+                  "6-10",
+                  "11-15",
+                  "16-20",
+                  "21-25",
+                  "26-30",
+                  "31-35",
+                  "36-40",
+                  "41-45",
+                  "46-50"
+            )
+            ))%>%
+      ggplot(aes(x=age_group,y=median*100))+
+      geom_point(col="#D95F02",size=3,alpha=f4_alpha)+
+      geom_linerange(aes(ymin=lb*100,ymax=ub*100),col="#D95F02",lwd=1) +  # Set limits and breaks
       theme_minimal() +
+      labs(x = "Age (years) in 2023",
+           y = "%  infected\n only once with DENV") +
       theme(
             panel.grid.minor = element_blank(),  # Remove minor grid lines
             panel.grid.major = element_blank(),  # Remove major grid lines
             panel.background = element_blank(),   # Remove panel background
             plot.background = element_blank(),    # Remove plot background
-            axis.line = element_line(color = "black")  # Add axis lines
+            axis.line = element_line(color = "black"),  # Add axis lines
+            axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
       )
-
-
-modelobject$fit%>%
-      spread_draws(mono[age, year]) %>%
-      filter(year %in% c(1,3,8)) %>%
-      group_by(age,year) %>%
-      summarise(
-            median = median(mono),
-            lb = quantile(mono, 0.025),
-            ub = quantile(mono, 0.975),
-            .groups = 'drop'
-      ) %>%
-      ggplot(aes(x=age,y=median,col=factor(year+2015),fill = factor(year+2015)))+
-      # geom_ribbon(aes(ymin=lb,ymax=ub),alpha=0.5,col=NA)+
-      geom_line()
-
-
-
-modelobject$fit%>%
-      spread_draws(mono[age, year]) %>%
-      filter(year %in% c(8)) %>%
-      mutate(ag=cut(age,seq(0,50,5))) %>%
-      group_by(ag,.draw,year)%>%
-      summarise(mono=mean(mono)) %>%
-      group_by(ag,year)%>%
-      summarise(
-                  median = median(mono),
-                  lb = quantile(mono, 0.025),
-                  ub = quantile(mono, 0.975),
-                  .groups = 'drop'
-            ) %>%
-      ggplot(aes(x=ag,y=median))+
-      geom_point()+
-      geom_linerange(aes(ymin=lb,ymax=ub))
 
 
 
@@ -861,27 +869,47 @@ figure4 <- plot_grid(f4a_p1,f4a_p2,
 
 figure4
 
+f4_height <- 6.42
+f4_width <-5
+
 ggsave(filename = "output/figures/figure4.png",
        plot = figure4,
-       height = 6.42,
-       width = 4.34,
-       scale=1.5
+       height = f4_height,
+       width = f4_width,
+       scale=1.1
        )
 
 ggsave(filename = "output/figures/figure4.pdf",
        plot = figure4,
-       height = 6.42,
-       width = 4.34,
-       scale=1.5
+       height = f4_height,
+       width = f4_width,
+       scale=1.1
        )
 
 ggsave(filename = "output/figures/figure4.tiff",
        plot = figure4,
-       height = 6.42,
-       width = 4.34,
-       scale=1.5
+       height = f4_height,
+       width = f4_width,
+       scale=1.1
        )
 
+
+
+# f4c <- ggplot(draws3_2023, aes(x = age, y = median)) +
+#       geom_line() +
+#       geom_ribbon(alpha = 0.5, aes(ymin = lb, ymax = ub)) +
+#       labs(x = "Age (years) in 2023",
+#            y = "% of population\nwith one previous DENV infection") +
+#       scale_y_continuous(labels = scales::percent_format(), limits = c(0, 0.5)) + 
+#       scale_x_continuous(limits = c(0, 50), breaks = seq(0, 50, 5)) +  # Set limits and breaks
+#       theme_minimal() +
+#       theme(
+#             panel.grid.minor = element_blank(),  # Remove minor grid lines
+#             panel.grid.major = element_blank(),  # Remove major grid lines
+#             panel.background = element_blank(),   # Remove panel background
+#             plot.background = element_blank(),    # Remove plot background
+#             axis.line = element_line(color = "black")  # Add axis lines
+#       )
 
 ```
 
@@ -1176,7 +1204,8 @@ all_draws %>%
       scale_color_viridis_d()+
       xlab("Year")+
       ylab("Force of Infection")+
-      theme_cowplot()
+      theme_cowplot()+
+      theme(axis.text.x = element_text(angle = 45, hjust=1))
 
 ```
 
@@ -1186,37 +1215,37 @@ all_draws %>%
 ```{r}
 
 
-
-read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds")%>% 
-      spread_draws(lambda[year]) %>%
-      ungroup()%>%
-      mutate(year=2023-max(year)+year) %>%
-      mutate(newyear=case_when(
-            year>2018 ~ as.character(year),
-            year==2018 ~"2017-2018",
-            year<2018 ~ as.character(year-1)
-      )) %>%
-      filter(year>=2009)%>%
-      group_by(newyear)%>%
-      median_qi() %>%
-      ggplot(aes(x=newyear,y=cumhaz_to_prob(lambda*4)))+
-      geom_point()+
-      geom_linerange(aes(ymin=cumhaz_to_prob(lambda.lower*4),ymax =cumhaz_to_prob( lambda.upper*4)))+
-      scale_y_continuous(limits=c(0,0.75))+
-      xlab("Year")+ylab("Force of Infection")+
-      theme_cowplot()+
-      theme(axis.text.x = element_text(angle = 45,hjust=1))
-
-read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds")%>% 
-      gather_draws(logit_lambda_nonend,logit_lambda_end) %>%
-      median_qi() %>%
-      mutate(setting=ifelse(.variable=="logit_lambda_nonend",
-                            "Non-endemic","Pacific Islands"
-                            )) %>%
-      mutate(.value=4*expit(.value),
-             .lower  =4*expit(.lower),
-             .upper =4*expit(.upper)
-             )
+# 
+# read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds")%>% 
+#       spread_draws(lambda[year]) %>%
+#       ungroup()%>%
+#       mutate(year=2023-max(year)+year) %>%
+#       mutate(newyear=case_when(
+#             year>2018 ~ as.character(year),
+#             year==2018 ~"2017-2018",
+#             year<2018 ~ as.character(year-1)
+#       )) %>%
+#       filter(year>=2009)%>%
+#       group_by(newyear)%>%
+#       median_qi() %>%
+#       ggplot(aes(x=newyear,y=cumhaz_to_prob(lambda*4)))+
+#       geom_point()+
+#       geom_linerange(aes(ymin=cumhaz_to_prob(lambda.lower*4),ymax =cumhaz_to_prob( lambda.upper*4)))+
+#       scale_y_continuous(limits=c(0,0.75))+
+#       xlab("Year")+ylab("Force of Infection")+
+#       theme_cowplot()+
+#       theme(axis.text.x = element_text(angle = 45,hjust=1))
+# 
+# read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds")%>% 
+#       gather_draws(logit_lambda_nonend,logit_lambda_end) %>%
+#       median_qi() %>%
+#       mutate(setting=ifelse(.variable=="logit_lambda_nonend",
+#                             "Non-endemic","Pacific Islands"
+#                             )) %>%
+#       mutate(.value=4*expit(.value),
+#              .lower  =4*expit(.lower),
+#              .upper =4*expit(.upper)
+#              )
 
 
 
@@ -1227,8 +1256,86 @@ read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds")%>%
 
 ```{r}
 
+combo_sf1a <- read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds") %>% 
+      spread_draws(lambda[year]) %>%
+      group_by(year) %>%
+      summarize(
+            median = median(lambda * 4),
+            lower = quantile(lambda * 4, 0.025),
+            upper = quantile(lambda * 4, 0.975),
+            .groups = 'drop'
+      ) %>%
+      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
+      filter(actual_year >= 2008)%>%
+      mutate(newyear=case_when(
+            actual_year>2018 ~ as.character(actual_year),
+            actual_year==2018 ~"2017-2018",
+            actual_year<2018 ~ as.character(actual_year-1)
+      )) %>%
+      ggplot(aes(x = newyear)) +
+      geom_hline(yintercept = 0,col="grey90")+
+      geom_point(aes(y = cumhaz_to_prob(median)),size=f4_size,alpha=f4_alpha) +
+      geom_linerange(aes(ymin = cumhaz_to_prob(lower), ymax = cumhaz_to_prob(upper)),lwd=f4_lwd) +
+      xlab("Year")+
+      theme_minimal() +  # Using minimal theme
+      theme(
+            panel.grid.minor = element_blank(),  # Remove minor grid lines
+            panel.grid.major = element_blank(),  # Remove major grid lines
+            panel.background = element_blank(),   # Remove panel background
+            plot.background = element_blank(),    # Remove plot background
+            axis.line = element_line(color = "black")  # Add axis lines
+      )+ 
+      theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+                scale_y_continuous("Annual\nForce of Infection",
+                                   limits=c(0,0.7)
+                                   )
 
-read_rds("data/generated_data/supplement/pop_groups_supplement.rds") %>%
+combo_sf1b <- read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds") %>%
+      gather_draws(logit_lambda_nonend,logit_lambda_end) %>%
+      median_qi() %>%
+      mutate(setting=ifelse(.variable=="logit_lambda_nonend",
+                            "Non-endemic","Endemic"
+                            )) %>%
+      mutate(.value=4*expit(.value),
+             .lower  =4*expit(.lower),
+             .upper =4*expit(.upper)
+             ) %>%
+      bind_rows(read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds") %>%
+      spread_draws(lambda[year]) %>%
+      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
+      filter(actual_year >= 2008)   %>%
+      group_by(.draw)%>%
+      summarise(lambda=mean(lambda))%>%
+      ungroup() %>%
+      summarize(
+            .value = median((lambda* 4) ),
+            .lower = quantile((lambda* 4) , 0.025),
+            .upper = quantile((lambda* 4) , 0.975),
+            .groups = 'drop'
+      ) %>%
+      mutate(setting="American Samoa"))%>% 
+      # mutate(setting=ifelse(setting=="American Samoa",
+      #                       "American\nSamoa",setting
+      #                       ))%>%
+      ggplot(aes(x=(setting),y=cumhaz_to_prob(.value)))+
+      geom_hline(yintercept = 0,col="grey90")+
+      geom_point(size=f4_size,alpha=f4_alpha)+
+      geom_linerange(aes(ymin=cumhaz_to_prob(.lower),ymax=cumhaz_to_prob(.upper)),lwd=f4_lwd)+
+      theme_minimal()+
+      xlab("Setting") +  # Using minimal theme
+      theme(
+            panel.grid.minor = element_blank(),  # Remove minor grid lines
+            panel.grid.major = element_blank(),  # Remove major grid lines
+            panel.background = element_blank(),   # Remove panel background
+            plot.background = element_blank(),    # Remove plot background
+            axis.line = element_line(color = "black")  # Add axis lines
+      )+ 
+      theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+                scale_y_continuous("Average\nForce of Infection",
+                                   limits=c(0,0.6)
+                                   )
+
+combo_sf1c <- read_rds("data/generated_data/supplement/pop_groups_supplement.rds") %>%
       select(-median) %>%
       gather(type,value,-c(year,.draw)) %>%
       group_by(type,year)%>%
@@ -1236,7 +1343,7 @@ read_rds("data/generated_data/supplement/pop_groups_supplement.rds") %>%
                 lb=quantile(value,0.025),
                 ub=quantile(value,0.975)
       ) %>%
-      mutate(Type=factor(type,levels=c("susc", "mono", "the_rest"),labels=c("DENV-naïve","Primary", "Multiple")))%>%
+      mutate(Type=factor(type,levels=c("susc", "mono", "the_rest"),labels=c("Naïve","Only once", "Multiple times")))%>%
       mutate(year=2023-max(year)+year) %>%
       mutate(newyear=case_when(
             year>2018 ~ as.character(year),
@@ -1244,37 +1351,112 @@ read_rds("data/generated_data/supplement/pop_groups_supplement.rds") %>%
             year<2018 ~ as.character(year-1)
       )) %>%
       filter(year>=2009)%>%
-      ggplot(aes(x=newyear,col=fct_rev(Type),fill=fct_rev(Type),group=fct_rev(Type)))+
-      geom_line(aes(y=median))+
-      geom_ribbon(aes(ymin=lb,ymax=ub),alpha=0.5,col=NA)+
-      scale_color_brewer(palette = "Dark2")+
-      scale_fill_brewer(palette = "Dark2")+
+      ggplot(aes(x = newyear, y = median, color = fct_rev(Type), fill = fct_rev(Type),group=fct_rev(Type))) +
+      geom_line(linewidth = f4_lwd) +
+      geom_ribbon(aes(ymin = lb, ymax = ub), alpha = 0.4, color = NA) +
+            # Format y-axis as percentages
+      scale_y_continuous(labels = percent_format(accuracy = 1)) +
+      
       labs(
-            #title = "Trends in Population Immunity Over Time",
             x = "Year",
-            y = "Proportion of population by DENV infection History",
-            color = "Infection History",
-            fill = "Infection History"
+            y = "% of population",
+            color = "DENV Infection\nHistory",
+            fill = "DENV Infection\nHistory"
       ) +
-      theme_minimal()+
-      theme(axis.text.x = element_text(angle = 45,hjust=1))
+       scale_color_brewer(palette = "Dark2")+
+      scale_fill_brewer(palette = "Dark2")+
+      theme_minimal(base_size = 12) +
+      theme(
+            legend.title = element_text(face = "bold"),
+            legend.text = element_text(size = 10),
+            axis.text = element_text(size = 10),
+            axis.title = element_text(size = 10),
+            panel.grid.minor = element_blank(),
+            panel.grid.major = element_blank(),
+            panel.background = element_blank(),
+            plot.background = element_blank(),
+            axis.line = element_line(color = "black"),
+            axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1) 
+            
+      )
 
 
+
+
+combo_sf1d <- read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds") %>%
+      spread_draws(mono[age, year]) %>%
+      filter(year %in% c(7)) %>%
+      mutate(ag=cut(age,seq(0,50,5))) %>%
+      group_by(ag,.draw,year)%>%
+      summarise(mono=mean(mono)) %>%
+      group_by(ag,year)%>%
+      summarise(
+                  median = median(mono),
+                  lb = quantile(mono, 0.025),
+                  ub = quantile(mono, 0.975),
+                  .groups = 'drop'
+            )  %>%
+      mutate(age_group=factor(
+            ag,
+            labels=c(
+                  "1-5",
+                  "6-10",
+                  "11-15",
+                  "16-20",
+                  "21-25",
+                  "26-30",
+                  "31-35",
+                  "36-40",
+                  "41-45",
+                  "46-50"
+            )
+            ))%>%
+      ggplot(aes(x=age_group,y=median*100))+
+      geom_point(col="#D95F02",size=3,alpha=f4_alpha)+
+      geom_linerange(aes(ymin=lb*100,ymax=ub*100),col="#D95F02",lwd=1) +  # Set limits and breaks
+      theme_minimal() +
+      labs(x = "Age (years) in 2023",
+           y = "%  infected\n only once with DENV") +
+      theme(
+            panel.grid.minor = element_blank(),  # Remove minor grid lines
+            panel.grid.major = element_blank(),  # Remove major grid lines
+            panel.background = element_blank(),   # Remove panel background
+            plot.background = element_blank(),    # Remove plot background
+            axis.line = element_line(color = "black"),  # Add axis lines
+            axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)
+      )
+
+
+      
+      
+plot_grid(combo_sf1a,combo_sf1b,
+          combo_sf1c+theme(legend.position = "none"),
+                get_legend(combo_sf1c),
+                  combo_sf1d,
+      ggplot()+theme_void(),
+      nrow=3,
+      align = "hv",
+      axis="bl",
+       label_size = 12,   
+       labels = c("A","B","C","","D",""),
+      rel_widths = c(3,1.5)
+
+)
 
 #this is for year 2023 
-read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds")%>% 
-      spread_draws(mono[age, year]) %>%
-      filter(year %in% c(1,2,7)) %>%
-      group_by(age,year) %>%
-      summarise(
-            median = median(mono),
-            lb = quantile(mono, 0.025),
-            ub = quantile(mono, 0.975),
-            .groups = 'drop'
-      ) %>%
-      ggplot(aes(x=age,y=median,col=factor(year+2015),fill = factor(year+2015)))+
-      geom_ribbon(aes(ymin=lb,ymax=ub),alpha=0.5,col=NA)+
-      geom_line()
+# read_rds(file="output/model_fits/20250818_1943_former_combo1718.rds")%>% 
+#       spread_draws(mono[age, year]) %>%
+#       filter(year %in% c(1,2,7)) %>%
+#       group_by(age,year) %>%
+#       summarise(
+#             median = median(mono),
+#             lb = quantile(mono, 0.025),
+#             ub = quantile(mono, 0.975),
+#             .groups = 'drop'
+#       ) %>%
+#       ggplot(aes(x=age,y=median,col=factor(year+2015),fill = factor(year+2015)))+
+#       geom_ribbon(aes(ymin=lb,ymax=ub),alpha=0.5,col=NA)+
+#       geom_line()
 
 ```
 
