@@ -91,7 +91,85 @@ neccesary_years= long_dataset %>%
 
 ## Main  results
 
-### Residency history of school children in 2023 serological survey 
+
+## Figure 1: Findings from dengue case-based surveillance and serosurveys, American Samoa, 2008-2023
+
+```{r}
+
+
+silent_ob_2009 <- data.frame(
+      serotype=c("DENV-4 outbreak?"),
+      cases=55519*644/100000,
+      year=c(2009)
+      )
+
+silent_ob_2015 <- data.frame(
+      serotype=c("DENV-3 outbreak?"),
+      cases=c(898/2),
+      year=c(2015)
+      )
+
+
+f1 <- ArboNET_Case_Data %>%
+      count(year) %>%
+      bind_rows(data.frame(n=0,year=c(2019,2020,2021,2023))) %>%
+      ggplot(aes(x=year,y=n))+
+      geom_col(fill="#3182BD")+
+      geom_col(data=silent_ob_2009,aes(x=year,y=cases),lty=2,fill=NA,
+               col="black"
+               )+
+      geom_col(data=silent_ob_2015,aes(x=year,y=cases),lty=2,fill=NA,col="black")+
+      geom_text(aes(label=n,y=n+15))+
+      scale_x_continuous("Year",limits=c(2008,2024),breaks=2008:2023)+
+      scale_y_continuous("Number of Cases", limits = c(0,600),breaks=seq(0,600,100))+
+      theme_cowplot()+
+      
+      # Serosurvey annotation boxes
+      annotate("label", x = 2010.5, y = 200,
+               label = "2010 Serosurvey\n18–25 yrs: 89.0%\n26–40 yrs: 99.5%\nn=395",
+               size = 4, color = "black", fill = "white", label.size = 0.5,
+               lineheight = 1.3, hjust = 0.3, vjust = 0.5) +
+      annotate("label", x = 2023, y = 200,
+               label = "2023 Serosurvey\n7–16 yrs: 59%\nn=887",
+               size = 4, color = "black", fill = "white", label.size = 0.5,
+               lineheight = 1.2, hjust = 0.5, vjust = 0.5)+
+
+      # Arrows from serosurvey boxes
+      annotate("segment",
+               x = 2011, xend = 2010.1,
+               y = 120, yend = 0,
+               arrow = arrow(length = unit(0.7, "cm")),
+               color = "black", linewidth = 1.2) +
+      annotate("segment",
+               x = 2023, xend = 2023,
+               y = 140, yend = 40,
+               arrow = arrow(length = unit(0.7, "cm")),
+               color = "black", linewidth = 1.2)+
+      annotate("text", x = 2009, y = silent_ob_2009$cases+40,
+               label = "DENV-4\noutbreak?",
+               size = 4)+
+      annotate("text", x = 2015, y = silent_ob_2015$cases+40,
+               label = "DENV-3\noutbreak?",
+               size = 4)+
+      annotate("text", x = 2017, y = 508+60,
+               label = "DENV-2\noutbreak",
+               col="#3182BD",
+               size = 4)
+
+
+
+ggsave(filename="output/figures/figure1.png", plot=f1,height=3,width = 5.8,scale=1.5)
+ggsave(filename="output/figures/figure1.pdf", plot=f1)
+ggsave(filename="output/figures/figure1.tiff", plot=f1)
+
+
+
+
+```
+
+
+
+## Main Text: Residency history of school children in 2023 serological survey 
 
 ```{r}
 
@@ -174,136 +252,8 @@ long_dataset %>%
 
 ```
 
-## Table.
 
-```{r}
-
-
-
-wide_dataset %>%
-      left_join(neccesary_years)%>%
-      summarise(n=n(),age=median(`Calculated age based on DOB.`),
-                lb_age = quantile(`Calculated age based on DOB.`,0.25),
-              ub_age = quantile(`Calculated age based on DOB.`,0.75),
-              female=sum(Sex=="Female"),
-                            percent_female=mean(Sex=="Female"),
-                          AS=median(years_AS/n_years),
-                          lb_AS=quantile(years_AS/n_years,0.25),
-                            ub_AS=quantile(years_AS/n_years,0.75),
-                          seropos=sum(`Final Test Result`=="P"),
-              ob=sum(loc_2017=="American Samoa" | loc_2018=="American Samoa"),
-              ob_percent=mean(loc_2017=="American Samoa" | loc_2018=="American Samoa"),
-            per_seropos=mean(`Final Test Result`=="P")
-                )
-
-wide_dataset %>%
-      left_join(neccesary_years)%>%
-      group_by(birth_group)%>%
-      summarise(n=n(),age=median(`Calculated age based on DOB.`),
-                lb_age = quantile(`Calculated age based on DOB.`,0.25),
-              ub_age = quantile(`Calculated age based on DOB.`,0.75),
-              female=sum(Sex=="Female"),
-                            percent_female=mean(Sex=="Female"),
-                          AS=median(years_AS/n_years),
-                          lb_AS=quantile(years_AS/n_years,0.25),
-                            ub_AS=quantile(years_AS/n_years,0.75),
-                          seropos=sum(`Final Test Result`=="P"),
-              ob=sum(loc_2017=="American Samoa" | loc_2018=="American Samoa"),
-              ob_percent=mean(loc_2017=="American Samoa" | loc_2018=="American Samoa"),
-            per_seropos=mean(`Final Test Result`=="P")
-                )
-      
-
-
-
-wide_dataset %>%
-      left_join(neccesary_years)%>%
-      summarise(mean(years_AS==n_years))
-
-
-      
-
-
-```
-
-## Figure 1.
-
-```{r}
-
-
-silent_ob_2009 <- data.frame(
-      serotype=c("DENV-4 outbreak?"),
-      cases=55519*644/100000,
-      year=c(2009)
-      )
-
-silent_ob_2015 <- data.frame(
-      serotype=c("DENV-3 outbreak?"),
-      cases=c(898/2),
-      year=c(2015)
-      )
-
-
-f1 <- ArboNET_Case_Data %>%
-      count(year) %>%
-      bind_rows(data.frame(n=0,year=c(2019,2020,2021,2023))) %>%
-      ggplot(aes(x=year,y=n))+
-      geom_col(fill="#3182BD")+
-      geom_col(data=silent_ob_2009,aes(x=year,y=cases),lty=2,fill=NA,
-               col="black"
-               )+
-      geom_col(data=silent_ob_2015,aes(x=year,y=cases),lty=2,fill=NA,col="black")+
-      geom_text(aes(label=n,y=n+15))+
-      scale_x_continuous("Year",limits=c(2008,2024),breaks=2008:2023)+
-      scale_y_continuous("Number of Cases", limits = c(0,600),breaks=seq(0,600,100))+
-      theme_cowplot()+
-      
-      # Serosurvey annotation boxes
-      annotate("label", x = 2010.5, y = 200,
-               label = "2010 Serosurvey\n18–25 yrs: 89.0%\n26–40 yrs: 99.5%\nn=395",
-               size = 4, color = "black", fill = "white", label.size = 0.5,
-               lineheight = 1.3, hjust = 0.3, vjust = 0.5) +
-      annotate("label", x = 2023, y = 200,
-               label = "2023 Serosurvey\n7–16 yrs: 59%\nn=887",
-               size = 4, color = "black", fill = "white", label.size = 0.5,
-               lineheight = 1.2, hjust = 0.5, vjust = 0.5)+
-
-      # Arrows from serosurvey boxes
-      annotate("segment",
-               x = 2011, xend = 2010.1,
-               y = 120, yend = 0,
-               arrow = arrow(length = unit(0.7, "cm")),
-               color = "black", linewidth = 1.2) +
-      annotate("segment",
-               x = 2023, xend = 2023,
-               y = 140, yend = 40,
-               arrow = arrow(length = unit(0.7, "cm")),
-               color = "black", linewidth = 1.2)+
-      annotate("text", x = 2009, y = silent_ob_2009$cases+40,
-               label = "DENV-4\noutbreak?",
-               size = 4)+
-      annotate("text", x = 2015, y = silent_ob_2015$cases+40,
-               label = "DENV-3\noutbreak?",
-               size = 4)+
-      annotate("text", x = 2017, y = 508+60,
-               label = "DENV-2\noutbreak",
-               col="#3182BD",
-               size = 4)
-
-
-
-ggsave(filename="output/figures/figure1.png", plot=f1,height=3,width = 5.8,scale=1.5)
-ggsave(filename="output/figures/figure1.pdf", plot=f1)
-ggsave(filename="output/figures/figure1.tiff", plot=f1)
-
-
-
-
-```
-
-
-
-## Figure 2.
+## Figure 2:  Modeled prevalence of past dengue virus infection among school children in 2023 serosurvey by place of birth and reported residency during the 2017 to 2018 outbreak --- American Samoa, 2023. 
 
 ```{r}
 
@@ -476,69 +426,10 @@ svyglm(sero_binary ~ birth_group, design = as.dsn, family = quasibinomial()) %>%
 svyglm(sero_binary ~ fct_rev(ob_location), design = as.dsn, family = quasibinomial()) %>% summary()
 
 
-# #Dataset 2: Residency Figures 
-# ### with weighted data####
-# library(readxl)
-# wgt_sum <- read_xlsx("wgt_sum.xlsx")### what is this file
-# wgt_sum <- wgt_sum %>%
-#       mutate(
-#             point_prop = point / 100,
-#             lower_prop = lower / 100,
-#             upper_prop = upper / 100
-#       )
-# 
-# f2a <- ggplot(wgt_sum, aes(x = birth_group, y = point_prop)) +
-#       geom_point(size = 3, color = "blue") +  # Point estimates
-#       geom_errorbar(aes(ymin = lower_prop, ymax = upper_prop), width = 0.2, color = "black") +  # Error bars for CIs
-#       scale_y_continuous(limits = c(0, 1), 
-#                          breaks = seq(0, 1, by = 0.2), 
-#                          labels = scales::percent) +
-#       labs(x = "Birthplace location group",
-#            y = "Prevalence of previous dengue infection") +
-#       theme_bw() +
-#       theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
-# 
-# f2a
-# 
-# ###weightedestimates###
-# f2a <- survey_data1%>%
-#       mutate(location_group = case_when(
-#             birthplace_clean == "Missing" ~ NA_character_,  # Use NA_character_ for character columns
-#             birthplace_clean == "American Samoa" ~ "American Samoa",
-#             birthplace_clean %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines", "Hawaii") ~ "Pacific Islands",
-#             birthplace_clean %in% c("New Zealand", "USA", "Australia") ~ "Non-endemic",
-#             TRUE ~ birthplace_clean # Retain any other locations unchanged
-#       ))%>%
-#       group_by(location_group)%>%
-#       summarise(seropos=mean(`Final Test Result`== "P")) %>%
-#       ggplot(aes(x=location_group,y=seropos))+
-#       geom_point()+
-#       scale_y_continuous(limits=c(0,1))
-# 
-# 
-# 
-# ###weightedestimates###
-# f2a <- survey_data1%>%
-#       mutate(location_group = case_when(
-#             birthplace_clean == "Missing" ~ NA_character_,  # Use NA_character_ for character columns
-#             birthplace_clean == "American Samoa" ~ "American Samoa",
-#             birthplace_clean %in% c("Western Samoa", "Fiji", "Tuvalu", "Philippines", "Hawaii") ~ "Pacific Islands",
-#             birthplace_clean %in% c("New Zealand", "USA", "Australia") ~ "Non-endemic",
-#             TRUE ~ birthplace_clean # Retain any other locations unchanged
-#       ))%>%
-#       group_by(location_group)%>%
-#       summarise(seropos=mean(`Final Test Result`== "P")) %>%
-#       ggplot(aes(x=location_group,y=seropos))+
-#       geom_point()+
-#       scale_y_continuous(limits=c(0,1))
-
-
 ```
 
 
-
-
-## Figure 3
+## Figure 3: Assessment of catalytic model fit to serological and case data
 
 ```{r}
 
@@ -565,21 +456,12 @@ ggsave(filename="output/figures/figure3.tiff", plot=f3)
 
 ```
 
+## Main Text: Dynamics and immune landscape of dengue in American Samoa from the catalytic model
 
-## Figure 4
+```{r}
 
-```{r eval=FALSE}
 
-#Research Question 1: 1.Is there evidence of local transmission of dengue in American Samoa during years without cases reported?
-# modelobject<- former <- read_rds(file="output/model_fits/20250603_2142_former.rds")
-
-##modelfit<-read_rds("code/catalytic_model/as_denguefoi_fixeff_casess_Tlambda_17_mi_3_covs__ns_4_case2010to2022.rds")
 modelfit<-modelobject$fit
-# draws<-modelfit%>%
-#       spread_draws(lambda[year])
-
-
-
 
 
 #refining this based on the recs 
@@ -653,23 +535,14 @@ modelfit%>%
       mutate(setting=factor(.variable,labels=c("American Samoa","Endemic","Non-endemic")) )
       
       
-
-      # median_qi() %>%
-      # mutate(setting=ifelse(.variable=="logit_lambda_nonend",
-      #                       "Non-endemic","Pacific Islands"
-      #                       )) %>%
-      # mutate(.value=4*expit(.value),
-      #        .lower  =4*expit(.lower),
-      #        .upper =4*expit(.upper)
-      #        )
-
-
-
-
-
-
-
 lambdas <- former$fit %>% spread_draws(lambda[t]) 
+
+```
+
+
+```{r f4-calcs, eval=FALSE}
+
+
 
 ages <- 1:49
 times <-1:64
@@ -735,10 +608,6 @@ draws3_2023 <- modelfit %>%
             .groups = 'drop'
       )
 
-```
-
-
-```{r eval=FALSE}
 
 # write_rds(draws1,"data/generated_data/figure4/draws1.rds")
 # write_rds(f4a_p2_df,"data/generated_data/figure4/f4a_p2_df.rds")
@@ -748,6 +617,7 @@ draws3_2023 <- modelfit %>%
 
 ```
 
+## Figure 4: Reconstruction of dengue transmission and risk from catalytic model.  
 
 ```{r}
 
@@ -811,11 +681,6 @@ pop_groups%>%
                 quantile(ratio_2016,0.025),
               quantile(ratio_2016,0.975)
                 )
-
-```
-
-
-```{r}
 
 
 
@@ -1024,6 +889,61 @@ ggsave(filename = "output/figures/figure4.tiff",
 
 
 ### supplementary figures
+
+
+## Supplementary Table 1.  Demographic characteristics among participants in a dengue serosurvey in American Samoa by birth location, September-October 2023
+
+```{r}
+
+
+
+wide_dataset %>%
+      left_join(neccesary_years)%>%
+      summarise(n=n(),age=median(`Calculated age based on DOB.`),
+                lb_age = quantile(`Calculated age based on DOB.`,0.25),
+              ub_age = quantile(`Calculated age based on DOB.`,0.75),
+              female=sum(Sex=="Female"),
+                            percent_female=mean(Sex=="Female"),
+                          AS=median(years_AS/n_years),
+                          lb_AS=quantile(years_AS/n_years,0.25),
+                            ub_AS=quantile(years_AS/n_years,0.75),
+                          seropos=sum(`Final Test Result`=="P"),
+              ob=sum(loc_2017=="American Samoa" | loc_2018=="American Samoa"),
+              ob_percent=mean(loc_2017=="American Samoa" | loc_2018=="American Samoa"),
+            per_seropos=mean(`Final Test Result`=="P")
+                )
+
+wide_dataset %>%
+      left_join(neccesary_years)%>%
+      group_by(birth_group)%>%
+      summarise(n=n(),age=median(`Calculated age based on DOB.`),
+                lb_age = quantile(`Calculated age based on DOB.`,0.25),
+              ub_age = quantile(`Calculated age based on DOB.`,0.75),
+              female=sum(Sex=="Female"),
+                            percent_female=mean(Sex=="Female"),
+                          AS=median(years_AS/n_years),
+                          lb_AS=quantile(years_AS/n_years,0.25),
+                            ub_AS=quantile(years_AS/n_years,0.75),
+                          seropos=sum(`Final Test Result`=="P"),
+              ob=sum(loc_2017=="American Samoa" | loc_2018=="American Samoa"),
+              ob_percent=mean(loc_2017=="American Samoa" | loc_2018=="American Samoa"),
+            per_seropos=mean(`Final Test Result`=="P")
+                )
+      
+
+
+
+wide_dataset %>%
+      left_join(neccesary_years)%>%
+      summarise(mean(years_AS==n_years))
+
+
+      
+
+
+```
+
+
 
 ### Cohort figure
 
