@@ -437,18 +437,37 @@ svyglm(sero_binary ~ fct_rev(ob_location), design = as.dsn, family = quasibinomi
 modelobject<- former <- read_rds(file="output/model_fits/20250818_188_former.rds")
 
 
+fake_plot <- data.frame(year=c(2020,2020),value=c(1,2),type=c("Observed","Model estimated")) %>%
+      ggplot(aes(x=year))+
+            geom_col(aes(y=value,fill=fct_rev(type)))+
+      geom_point(aes(y=value,col=fct_rev(type)))+
+      geom_line(aes(y=value,col=fct_rev(type)))+
+      scale_color_manual(name=NULL,values=c(NA,"steelblue"),na.value = NA)+
+      scale_fill_manual(name=NULL,values=c("grey",NA),na.value = NA)+
+      theme_cowplot()
+
+
 f3 <- cowplot::plot_grid(
-      former$p1 +cowplot::theme_cowplot()+scale_x_continuous(name='Birth year of serosurvey participant',breaks=9:17,labels=2015:2007),     
-      cowplot::plot_grid(former$p2 +
-                               scale_color_manual(values = "red")+
-                         cowplot::theme_cowplot(),
-                         former$p3 +cowplot::theme_cowplot(),nrow = 1,
+      former$p1 +cowplot::theme_cowplot()+scale_x_continuous(name='Birth year of serosurvey participant',breaks=9:17,labels=2015:2007),#+
+            #             scale_color_manual(name=NULL,values=c(NA,'#4581B4'),
+            #                                na.value=NA,labels=c('Observed','Model estimated'))+
+            # scale_fill_manual(name=NULL,values=c(NA,'#4581B4'),
+            #                   na.value=NA,labels=c('Observed','Model estimated')),     
+      cowplot::plot_grid(ggdraw(former$p2 +
+                         cowplot::theme_cowplot())+
+                               draw_grob(get_legend(fake_plot),x=0.55,y=0.2),
+                         ggdraw(former$p3 +cowplot::theme_cowplot())+
+                               draw_grob(get_legend(fake_plot),x=0.55,y=0.25),
+                         nrow = 1,
                          labels=c("B","C")
                          
       ), ncol=1,
       labels=c("A","")
       )
 
+
+
+f3
 
 ggsave(filename="output/figures/figure3.png", plot=f3, height=5)
 ggsave(filename="output/figures/figure3.pdf", plot=f3)
@@ -607,31 +626,7 @@ draws3_2023 <- modelobject$fit%>%
 
 modelfit<-modelobject$fit
 
-modelfit%>%
-      gather_draws(logit_lambda_nonend,logit_lambda_end,lambda[year]) %>%
-      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
-      filter(actual_year >= 2008 |is.na(year))%>%
-      group_by(.draw,.variable)%>%
-      summarise(.value=mean(.value)) %>%
-      mutate(.value=ifelse(.variable=="lambda",
-                           cumhaz_to_prob(4*.value),
-                           cumhaz_to_prob(4*expit(.value))))%>%
-      group_by(.draw)%>%
-      mutate(diff=.value[.variable=="lambda"]-.value)%>%
-      group_by(.variable)%>%
-      summarize(
-            .lower = quantile(.value, 0.025),
-            .upper = quantile(.value, 0.975),
-            .value = median(.value),
-            
-            med_diff=median(diff),
-            lb_diff=quantile(diff, 0.025),
-            ub_diff=quantile(diff, 0.975),
-            .groups = 'drop'
-      ) %>%
-      mutate(setting=factor(.variable,labels=c("American Samoa","Endemic","Non-endemic")) )
-      
-      
+
 
 
 
@@ -655,28 +650,9 @@ f4a_p2_df%>%
 f4b_table %>%
       filter(year==2016)
 
-f4b_table %>%
-      filter(Type=="DENV-naïve")
-
-f4b_table %>%
-      filter(Type=="Primary")
-
-
-draws3_2023 %>% filter(median==max(median))
-
-
-
-modelfit %>%
-      spread_draws(lambda[year])%>%
-      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
-      filter(actual_year %in% c())  %>%
-      group_by(year) %>%
-      summarize(
-            median = median(lambda * 4),
-            lower = quantile(lambda * 4, 0.25),
-            upper = quantile(lambda * 4, 0.75),
-            .groups = 'drop'
-      )
+f4b_table%>%
+      filter(year %in% c(2016,2018,2023)) %>%
+      filter(Type=="Naïve")
 
 
 pop_groups%>%
@@ -691,6 +667,37 @@ pop_groups%>%
                 quantile(ratio_2016,0.025),
               quantile(ratio_2016,0.975)
                 )
+
+
+f4b_table%>%
+      filter(Type=="Only once") %>%
+      pull(median)%>%
+      summary()
+
+f4b_table%>%
+      # filter(year %in% c(2016,2018,2023)) %>%
+      filter(Type=="Multiple times")
+
+
+draws3_2023
+
+# draws3_2023 %>% filter(median==max(median))
+
+
+
+# modelfit %>%
+#       spread_draws(lambda[year])%>%
+#       mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
+#       filter(actual_year %in% c(2016))  %>%
+#       group_by(actual_year) %>%
+#       summarize(
+#             median = median(lambda * 4),
+#             lower = quantile(lambda * 4, 0.25),
+#             upper = quantile(lambda * 4, 0.75),
+#             .groups = 'drop'
+#       )
+
+
 
 
 
@@ -1480,6 +1487,45 @@ med_ci <- function(param) {
 }
   
 
+overall_diff_df <- modelobject$fit%>%
+      gather_draws(logit_lambda_nonend,logit_lambda_end,lambda[year]) %>%
+      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
+      filter(actual_year >= 2008 |is.na(year))%>%
+      group_by(.draw,.variable)%>%
+      summarise(.value=mean(.value)) %>%
+      mutate(.value=ifelse(.variable=="lambda",
+                           cumhaz_to_prob(4*.value),
+                           cumhaz_to_prob(4*expit(.value))))%>%
+      group_by(.draw)%>%
+      mutate(diff=.value[.variable=="lambda"]-.value)%>%
+      group_by(.variable)%>%
+      summarize(
+            # .lower = quantile(.value, 0.025),
+            # .upper = quantile(.value, 0.975),
+            # .value = median(.value),
+            # 
+            # med_diff=median(diff),
+            # lb_diff=quantile(diff, 0.025),
+            # ub_diff=quantile(diff, 0.975),
+            foi=med_ci(.value),
+            diff=med_ci(diff),
+            .groups = 'drop'
+      ) %>%
+      mutate(setting=factor(.variable,labels=c("American Samoa","Endemic","Non-endemic")) ) %>%
+      select(setting,foi,diff) %>%
+      gather(parameter,value,-setting) %>%
+      filter(!(setting=="American Samoa" & parameter=="diff")) %>%
+      mutate(colname=case_when(setting=="American Samoa" ~ "AS_",
+                               setting=="Endemic" ~ "END_",
+                               setting=="Non-endemic" ~ "NONEND_"
+                               )) %>%
+      mutate(colname=paste0(colname,toupper(parameter)))%>%
+      select(colname,value)%>%
+      spread(colname,value) %>%
+      mutate(actual_year="Average")
+      
+      
+
 difference_df <- modelobject$fit %>%
       spread_draws(lambda[year],logit_lambda_end,logit_lambda_nonend)%>%
       mutate(actual_year = 2023 + (year - 64)) %>%
@@ -1499,16 +1545,20 @@ difference_df <- modelobject$fit %>%
             END_DIFF=med_ci(endemic_diff),
             NONEND_FOI=med_ci(lambda_nonend),
             NONEND_DIFF=med_ci(nonendemic_diff),
-      ) 
+      ) %>%
+      mutate(actual_year=as.character(actual_year))
 
 
-difference_df%>%
-      mutate(actual_year=as.character(actual_year))%>%
-      rename(
+bind_rows(
+      overall_diff_df,
+      difference_df)%>%
+      select(
             Year=actual_year,
-            `American Samoa`=AS_FOI,
-            `Other Tropical Islands`=END_FOI,
-            `Areas with limited nor no transmission`=NONEND_FOI
+            AS_FOI,
+           END_FOI,
+            END_DIFF,
+            NONEND_FOI,
+            NONEND_DIFF
       ) %>%
       flextable::flextable() %>%
       flextable::autofit() %>%
