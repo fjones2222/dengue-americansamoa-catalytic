@@ -619,10 +619,11 @@ draws3_2023 <- modelobject$fit%>%
 
 
 
-## Main Text: Dynamics and immune landscape of dengue in American Samoa from the catalytic model
+
+
+## Figure 4: Reconstruction of dengue transmission and risk from catalytic model.  
 
 ```{r}
-
 
 modelfit<-modelobject$fit
 
@@ -637,74 +638,8 @@ cumlambdas <- read_rds("data/generated_data/figure4/cumlambdas.rds")
 draws3_2023 <- read_rds("data/generated_data/figure4/draws3_2023.rds")
 
 
-#regular FOI
-draws1
-
-#discrete hazard
-draws1 %>%
-      mutate(across(median:upper, .fns= ~ cumhaz_to_prob(.x)))
-      
-f4a_p2_df%>%
-      mutate(across(.value:.upper, .fns= ~ cumhaz_to_prob(.x)))
-
-f4b_table %>%
-      filter(year==2016)
-
-f4b_table%>%
-      filter(year %in% c(2016,2018,2023)) %>%
-      filter(Type=="Naïve")
-
-
-pop_groups%>%
-      mutate(actual_year = 2023 + (year - 64)) %>%
-      filter(actual_year %in% c(2016,2018,2023)) %>% 
-      group_by(.draw) %>%
-      mutate(diff_2016=susc-susc[actual_year==2016],
-             ratio_2016=susc/susc[actual_year==2016]
-             )%>%
-      group_by(actual_year) %>%
-      summarise(median(ratio_2016),
-                quantile(ratio_2016,0.025),
-              quantile(ratio_2016,0.975)
-                )
-
-
-f4b_table%>%
-      filter(Type=="Only once") %>%
-      pull(median)%>%
-      summary()
-
-f4b_table%>%
-      # filter(year %in% c(2016,2018,2023)) %>%
-      filter(Type=="Multiple times")
-
-
-draws3_2023
-
-# draws3_2023 %>% filter(median==max(median))
-
-
-
-# modelfit %>%
-#       spread_draws(lambda[year])%>%
-#       mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
-#       filter(actual_year %in% c(2016))  %>%
-#       group_by(actual_year) %>%
-#       summarize(
-#             median = median(lambda * 4),
-#             lower = quantile(lambda * 4, 0.25),
-#             upper = quantile(lambda * 4, 0.75),
-#             .groups = 'drop'
-#       )
-
-
-
-
-
 ```
 
-
-## Figure 4: Reconstruction of dengue transmission and risk from catalytic model.  
 
 ```{r}
 
@@ -922,6 +857,77 @@ ggsave(filename = "output/figures/figure4.tiff",
 
 
 
+## Main Text: Dynamics and immune landscape of dengue in American Samoa from the catalytic model
+
+```{r}
+
+
+
+#regular FOI
+draws1
+
+#discrete hazard
+draws1 %>%
+      mutate(across(median:upper, .fns= ~ cumhaz_to_prob(.x)))
+      
+f4a_p2_df%>%
+      mutate(across(.value:.upper, .fns= ~ cumhaz_to_prob(.x)))
+
+f4b_table %>%
+      filter(year==2016)
+
+f4b_table%>%
+      filter(year %in% c(2016,2018,2023)) %>%
+      filter(Type=="Naïve")
+
+
+pop_groups%>%
+      mutate(actual_year = 2023 + (year - 64)) %>%
+      filter(actual_year %in% c(2016,2018,2023)) %>% 
+      group_by(.draw) %>%
+      mutate(diff_2016=susc-susc[actual_year==2016],
+             ratio_2016=susc/susc[actual_year==2016]
+             )%>%
+      group_by(actual_year) %>%
+      summarise(median(ratio_2016),
+                quantile(ratio_2016,0.025),
+              quantile(ratio_2016,0.975)
+                )
+
+
+f4b_table%>%
+      filter(Type=="Only once") %>%
+      pull(median)%>%
+      summary()
+
+f4b_table%>%
+      # filter(year %in% c(2016,2018,2023)) %>%
+      filter(Type=="Multiple times")
+
+
+draws3_2023
+
+# draws3_2023 %>% filter(median==max(median))
+
+
+
+# modelfit %>%
+#       spread_draws(lambda[year])%>%
+#       mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
+#       filter(actual_year %in% c(2016))  %>%
+#       group_by(actual_year) %>%
+#       summarize(
+#             median = median(lambda * 4),
+#             lower = quantile(lambda * 4, 0.25),
+#             upper = quantile(lambda * 4, 0.75),
+#             .groups = 'drop'
+#       )
+
+
+
+
+
+```
 
 ### supplementary figures
 
