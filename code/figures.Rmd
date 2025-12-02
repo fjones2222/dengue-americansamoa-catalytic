@@ -1,5 +1,5 @@
 ---
-title: "Code for [Manuscript title]"
+title: "Code for 'Reconstructing dengue transmission and assessing future outbreak risk in America Samoa, 2008–2023'"
 author: "Forrest Jones"
 date: "`r Sys.Date()`"
 output: html_document
@@ -271,7 +271,10 @@ survey_dataset <- wide_dataset %>%
       )) %>%
       mutate(birth_group=ifelse(str_detect(birth_group,"New Zealand"),
                              "Non-endemic",birth_group
-                             ))
+                             ))%>%
+      mutate(arrive_as=ifelse(ob_location=="Non-endemic",
+                            "After OB","Before or during OB"
+                            ))
 
 table(survey_dataset$ob_location)
 
@@ -424,6 +427,24 @@ f2_df
 svyglm(sero_binary ~ birth_group, design = as.dsn, family = quasibinomial()) %>%
       summary()
 svyglm(sero_binary ~ fct_rev(ob_location), design = as.dsn, family = quasibinomial()) %>% summary()
+
+
+# svyglm(sero_binary ~ fct_rev(ob_location)*birth_group, design = as.dsn, family = quasibinomial()) %>% summary()
+
+# nonend_born <- survey_dataset %>% filter(birth_group=="Non-endemic") 
+
+as.dsn
+
+nonend_born.dsn <- subset(as.dsn,birth_group=="Non-endemic")
+
+library(CompQuadForm)
+
+svychisq(~sero_binary+arrive_as, nonend_born.dsn,statistic="lincom") 
+
+svyglm(sero_binary ~ arrive_as, design = nonend_born.dsn, family = quasibinomial()) %>% summary()
+
+
+
 
 
 ```
