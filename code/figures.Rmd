@@ -96,39 +96,95 @@ neccesary_years= long_dataset %>%
 
 ```{r}
 
+# #old figure 1
+# silent_ob_2009 <- data.frame(
+#       serotype=c("DENV-4 outbreak?"),
+#       cases=55519*644/100000,
+#       year=c(2009)
+#       )
+# 
+# silent_ob_2015 <- data.frame(
+#       serotype=c("DENV-3 outbreak?"),
+#       cases=c(898/2),
+#       year=c(2015)
+#       )
+# 
+# 
+# f1 <- ArboNET_Case_Data %>%
+#       count(year) %>%
+#       bind_rows(data.frame(n=0,year=c(2019,2020,2021,2023))) %>%
+#       ggplot(aes(x=year,y=n))+
+#       geom_col(fill="#3182BD")+
+#       geom_col(data=silent_ob_2009,aes(x=year,y=cases),lty=2,fill=NA,
+#                col="black"
+#                )+
+#       geom_col(data=silent_ob_2015,aes(x=year,y=cases),lty=2,fill=NA,col="black")+
+#       geom_text(aes(label=n,y=n+15))+
+#       scale_x_continuous("Year",limits=c(2008,2024),breaks=2008:2023)+
+#       scale_y_continuous("Number of Cases", limits = c(0,600),breaks=seq(0,600,100))+
+#       theme_cowplot()+
+#       
+#       # Serosurvey annotation boxes
+#       annotate("label", x = 2010.5, y = 200,
+#                label = "2010 Serosurvey\n18–25 yrs: 89.0%\n26–40 yrs: 99.5%\nn=395",
+#                size = 4, color = "black", fill = "white", label.size = 0.5,
+#                lineheight = 1.3, hjust = 0.3, vjust = 0.5) +
+#       annotate("label", x = 2023, y = 200,
+#                label = "2023 Serosurvey\n7–16 yrs: 59%\nn=887",
+#                size = 4, color = "black", fill = "white", label.size = 0.5,
+#                lineheight = 1.2, hjust = 0.5, vjust = 0.5)+
+# 
+#       # Arrows from serosurvey boxes
+#       annotate("segment",
+#                x = 2011, xend = 2010.1,
+#                y = 120, yend = 0,
+#                arrow = arrow(length = unit(0.7, "cm")),
+#                color = "black", linewidth = 1.2) +
+#       annotate("segment",
+#                x = 2023, xend = 2023,
+#                y = 140, yend = 40,
+#                arrow = arrow(length = unit(0.7, "cm")),
+#                color = "black", linewidth = 1.2)+
+#       annotate("text", x = 2009, y = silent_ob_2009$cases+40,
+#                label = "DENV-4\noutbreak?",
+#                size = 4)+
+#       annotate("text", x = 2015, y = silent_ob_2015$cases+40,
+#                label = "DENV-3\noutbreak?",
+#                size = 4)+
+#       annotate("text", x = 2017, y = 508+60,
+#                label = "DENV-2\noutbreak",
+#                col="#3182BD",
+#                size = 4)
 
-silent_ob_2009 <- data.frame(
-      serotype=c("DENV-4 outbreak?"),
-      cases=55519*644/100000,
-      year=c(2009)
-      )
-
-silent_ob_2015 <- data.frame(
-      serotype=c("DENV-3 outbreak?"),
-      cases=c(898/2),
-      year=c(2015)
-      )
 
 
+# ggsave(filename="output/figures/figure1.png", plot=f1,height=3,width = 5.8,scale=1.5)
+# ggsave(filename="output/figures/figure1.pdf", plot=f1)
+# ggsave(filename="output/figures/figure1.tiff", plot=f1)
+
+
+#alternative figure 1
 f1 <- ArboNET_Case_Data %>%
       count(year) %>%
-      bind_rows(data.frame(n=0,year=c(2019,2020,2021,2023))) %>%
+      bind_rows(data.frame(n=c(NA,NA,NA,NA,NA,NA,NA,NA,0,0,0,0),year=c(2008:2015,2019,2020,2021,2023))) %>%
+      mutate(n_char=ifelse(is.na(n),
+                           "NR",as.character(n)
+                           ))%>% 
+      mutate(label_height=ifelse(is.na(n),
+                           20,n+20
+                           ))%>%
       ggplot(aes(x=year,y=n))+
       geom_col(fill="#3182BD")+
-      geom_col(data=silent_ob_2009,aes(x=year,y=cases),lty=2,fill=NA,
-               col="black"
-               )+
-      geom_col(data=silent_ob_2015,aes(x=year,y=cases),lty=2,fill=NA,col="black")+
-      geom_text(aes(label=n,y=n+15))+
+      geom_text(aes(label=n_char,y=label_height))+
       scale_x_continuous("Year",limits=c(2008,2024),breaks=2008:2023)+
-      scale_y_continuous("Number of Cases", limits = c(0,600),breaks=seq(0,600,100))+
+      scale_y_continuous("Number of Cases", limits = c(0,650),breaks=seq(0,600,100))+
       theme_cowplot()+
       
       # Serosurvey annotation boxes
-      annotate("label", x = 2010.5, y = 200,
+      annotate("label", x = 2010, y = 200,
                label = "2010 Serosurvey\n18–25 yrs: 89.0%\n26–40 yrs: 99.5%\nn=395",
                size = 4, color = "black", fill = "white", label.size = 0.5,
-               lineheight = 1.3, hjust = 0.3, vjust = 0.5) +
+               lineheight = 1.3,  vjust = 0.5) +
       annotate("label", x = 2023, y = 200,
                label = "2023 Serosurvey\n7–16 yrs: 59%\nn=887",
                size = 4, color = "black", fill = "white", label.size = 0.5,
@@ -136,8 +192,8 @@ f1 <- ArboNET_Case_Data %>%
 
       # Arrows from serosurvey boxes
       annotate("segment",
-               x = 2011, xend = 2010.1,
-               y = 120, yend = 0,
+               x = 2010, xend = 2010,
+               y = 120, yend = 40,
                arrow = arrow(length = unit(0.7, "cm")),
                color = "black", linewidth = 1.2) +
       annotate("segment",
@@ -145,23 +201,23 @@ f1 <- ArboNET_Case_Data %>%
                y = 140, yend = 40,
                arrow = arrow(length = unit(0.7, "cm")),
                color = "black", linewidth = 1.2)+
-      annotate("text", x = 2009, y = silent_ob_2009$cases+40,
-               label = "DENV-4\noutbreak?",
+      annotate("text", x = 2009.5, y = 625,
+               label = "DENV-4\noutbreak\n(2009-2010)",fontface="bold",
                size = 4)+
-      annotate("text", x = 2015, y = silent_ob_2015$cases+40,
-               label = "DENV-3\noutbreak?",
+      annotate("text", x = 2015, y = 625,
+               label = "DENV-3\noutbreak\n(2015)",fontface="bold",
                size = 4)+
-      annotate("text", x = 2017, y = 508+60,
-               label = "DENV-2\noutbreak",
-               col="#3182BD",
+      annotate("text", x = 2017.5, y = 625,
+               label = "DENV-2\noutbreak\n(2017-2018)",fontface="bold",
+               # col="#3182BD",
                size = 4)
 
+f1
 
 
-ggsave(filename="output/figures/figure1.png", plot=f1,height=3,width = 5.8,scale=1.5)
+ggsave(filename="output/figures/figure1.png", plot=f1,height=3.5,width = 5.8,scale=1.5)
 ggsave(filename="output/figures/figure1.pdf", plot=f1)
 ggsave(filename="output/figures/figure1.tiff", plot=f1)
-
 
 
 
@@ -203,7 +259,7 @@ nonendemies <- long_dataset %>%
             group_by(`Record ID`)%>%
             filter(sum(Former_location_group=="Non-endemic")>=2)%>%
             mutate(any_PI=any(Former_location_group=="Pacific Islands")) %>%
-            filter(year %in% c(2017,2018)) %>%
+            filter(year %in% c(2015,2018)) %>%
             mutate(IN_AS=any(Former_location_group=="American Samoa")) %>%
             distinct(`Record ID`,IN_AS,any_PI) %>%
             ungroup()%>%
@@ -458,6 +514,15 @@ svyglm(sero_binary ~ arrive_as, design = nonend_born.dsn, family = quasibinomial
 modelobject<- former <- read_rds(file="output/model_fits/20250818_188_former.rds")
 
 
+
+library(tidybayes)
+
+modelobject$fit %>% 
+      spread_draws(frailty_alpha) %>%
+      mutate(frailty_alpha=1/frailty_alpha)%>%
+      median_qi() 
+      
+
 fake_plot <- data.frame(year=c(2020,2020),value=c(1,2),type=c("Observed","Model estimated")) %>%
       ggplot(aes(x=year))+
             geom_col(aes(y=value,fill=fct_rev(type)))+
@@ -467,32 +532,58 @@ fake_plot <- data.frame(year=c(2020,2020),value=c(1,2),type=c("Observed","Model 
       scale_fill_manual(name=NULL,values=c("grey",NA),na.value = NA)+
       theme_cowplot()
 
+detach("package:ggplot2", unload = TRUE)
+library(ggplot2)
+
+
+
+
+
 
 f3 <- cowplot::plot_grid(
-      former$p1 +cowplot::theme_cowplot()+scale_x_continuous(name='Birth year of serosurvey participant',breaks=9:17,labels=2015:2007),#+
-            #             scale_color_manual(name=NULL,values=c(NA,'#4581B4'),
-            #                                na.value=NA,labels=c('Observed','Model estimated'))+
-            # scale_fill_manual(name=NULL,values=c(NA,'#4581B4'),
-            #                   na.value=NA,labels=c('Observed','Model estimated')),     
-      cowplot::plot_grid(ggdraw(former$p2 +
+     seroprev_fitgraph(former$dataset,former$fit) +
+           cowplot::theme_cowplot()+
+           scale_x_continuous(name='Age of serosurvey participant in 2023',breaks=9:17,labels=8:16),
+      cowplot::plot_grid(ggdraw(year_fitgraph(former$fit) +
                          cowplot::theme_cowplot())+
                                draw_grob(get_legend(fake_plot),x=0.55,y=0.2),
-                         ggdraw(former$p3 +cowplot::theme_cowplot())+
+                         ggdraw(agegroup_fitgraph(former$fit) +cowplot::theme_cowplot())+
                                draw_grob(get_legend(fake_plot),x=0.55,y=0.25),
                          nrow = 1,
                          labels=c("B","C")
-                         
+
       ), ncol=1,
       labels=c("A","")
       )
-
-
 
 f3
 
 ggsave(filename="output/figures/figure3.png", plot=f3, height=5)
 ggsave(filename="output/figures/figure3.pdf", plot=f3)
 ggsave(filename="output/figures/figure3.tiff", plot=f3)
+
+#old figure 3
+
+# f3 <- cowplot::plot_grid(
+#       former$p1 +cowplot::theme_cowplot()+scale_x_continuous(name='Birth year of serosurvey participant',breaks=9:17,labels=2015:2007),#+
+#             #             scale_color_manual(name=NULL,values=c(NA,'#4581B4'),
+#             #                                na.value=NA,labels=c('Observed','Model estimated'))+
+#             # scale_fill_manual(name=NULL,values=c(NA,'#4581B4'),
+#             #                   na.value=NA,labels=c('Observed','Model estimated')),     
+#       cowplot::plot_grid(ggdraw(former$p2 +
+#                          cowplot::theme_cowplot())+
+#                                draw_grob(get_legend(fake_plot),x=0.55,y=0.2),
+#                          ggdraw(former$p3 +cowplot::theme_cowplot())+
+#                                draw_grob(get_legend(fake_plot),x=0.55,y=0.25),
+#                          nrow = 1,
+#                          labels=c("B","C")
+#                          
+#       ), ncol=1,
+#       labels=c("A",""),return_all = TRUE
+#       )
+
+
+
 
 
 ```
