@@ -1,2 +1,2 @@
 # dengue-americansamoa-catalytic
-Code for manuscript on dengue catalytic model in American Samoa
+Initial code for manuscript on dengue catalytic model in American Samoa. Updates to come.
