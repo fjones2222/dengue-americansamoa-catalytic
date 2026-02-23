@@ -11,7 +11,6 @@ pacman::p_load(tidyverse)
 #### Step 1a: Create new variable of yob and group the birthplace and residency into specific groups ###
 # Clean birthplace into standard categories
 survey_data <- read_csv("data/raw_data/AmericanSamoaDengueS_DATA_LABELS_2025-01-10_1548.csv") %>%
-# survey_data <- read_csv("data/AmericanSamoaDengueS_DATA_LABELS_2024-02-27_1007.csv") %>%
       rename(birthplace=`4. Where was your child born?`,
              birthplace_other=`Where was your child born? Other:`) %>%
       mutate(birthplace_clean = case_when(
