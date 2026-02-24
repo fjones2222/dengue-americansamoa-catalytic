@@ -650,7 +650,7 @@ f4a_p2_df <- modelfit%>%
 ages <- 1:49
 times <-1:64
 
-lambdas <- former$fit %>% spread_draws(lambda[t]) 
+lambdas <- modelfit %>% spread_draws(lambda[t]) 
 cumlambdas <- data.frame()
 
 for(i in times){

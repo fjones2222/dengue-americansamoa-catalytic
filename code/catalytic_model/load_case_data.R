@@ -45,3 +45,44 @@ for (r in 1:nrow(case_data)) {
                                     caseage_by_year$ncase[caseage_by_year$year==colnames(case_data)[c] & caseage_by_year$AgeGroup==rownames(case_data)[r]],0)
       }
 }
+
+
+
+
+# ###bring in 2025 data
+# raw_20252026data<- read_csv("data/raw_data/AmericanSamoaDepartm-ASAnalysisDataset_DATA_2026-02-11_1139.csv")
+# 
+# T_case <- 10 #add 2 more years for 2025
+# 
+# case_data = matrix(nrow=AG,ncol=T_case)
+# agegroups = c("0 to 4","5 to 9","10 to 14","15 to 19","20 to 24","25 to 29","30 to 34","35 to 39","40 to 44","45 to 49")
+# rownames(case_data) = c("0 to 4","5 to 9","10 to 14","15 to 19","20 to 24","25 to 29","30 to 34","35 to 39","40 to 44","45 to 49")
+# colnames(case_data) = 2016:2025
+# 
+# 
+# 
+# for (r in 1:nrow(case_data)) {
+#       for (c in 1:ncol(case_data)) {
+#             case_data[r,c] = ifelse(length(caseage_by_year$ncase[caseage_by_year$year==colnames(case_data)[c] & caseage_by_year$AgeGroup==rownames(case_data)[r]])>0,
+#                                     caseage_by_year$ncase[caseage_by_year$year==colnames(case_data)[c] & caseage_by_year$AgeGroup==rownames(case_data)[r]],0)
+#       }
+# }
+# 
+# 
+# 
+# clean_2025data <- raw_20252026data %>%
+#       filter(year(case_date)==2025) %>%
+#       filter(agecalc<50) %>%
+#       mutate(agegroup=cut(agecalc,
+#                           c(0,5,10,15,20,25,30,35,40,45,50),
+#                           right = FALSE
+#       )) %>%
+#       filter(importedfrom=="Not Imported")%>%
+#       count(agegroup)
+# 
+# 
+# case_data[,T_case] <- clean_2025data$n
+# 
+# case_data
+# clean_2025data
+

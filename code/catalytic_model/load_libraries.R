@@ -49,7 +49,8 @@ run_FRAILTYregression_model_case_ss = function(compiled_model,
                                         maternal_immunity,
                                         n_serotypes,runmod,suffix,varybyisland=T,
                                         number_of_chains = 4,
-                                        combine_17_18=FALSE
+                                        combine_17_18=FALSE,
+                                        lastcases=2023
                                         ) {
       
       # Define weights based on whether we are using survey weights or not
@@ -110,7 +111,7 @@ run_FRAILTYregression_model_case_ss = function(compiled_model,
                   n_serotypes = n_serotypes,
                   AG=AG,
                   max_A=max_A,
-                  casedata_lastyear=2023,
+                  casedata_lastyear=lastcases,
                   casedata_firstyear=firstcases,
                   secondary_cases=case_data,
                   pop=pop_data,
@@ -235,8 +236,9 @@ seroprev_fitgraph <- function(serosurv_data, as_denguefoi_fe){
 
 ### graph 2: year fit graph
 
-year_fitgraph <- function(as_denguefoi_fe){
+year_fitgraph <- function(as_denguefoi_fe,yr1=2016,lastyr=2023){
       
+
       reprate = rstan::extract(as_denguefoi_fe,'reporting_rate',inc_warmup=F,permute=T)$reporting_rate
       reprate = apply(reprate,c(2),function(x) quantile(x,c(0.025,0.5,0.975)))
       
@@ -251,18 +253,18 @@ year_fitgraph <- function(as_denguefoi_fe){
       repcases_forplot = as.data.frame(apply(repcases,1,cbind))
       colnames(repcases_forplot)=c("LCI","Median","UCI")
       repcases_forplot$AgeGroup=agegroups
-      repcases_forplot$Year=rep(2016:2023,each=10)
+      repcases_forplot$Year=rep(yr1:lastyr,each=10)
       
       repcasestotal_byyear = apply(repcases,c(1,3),sum)
       repcasestotal_byyear = as.data.frame(t(apply(repcasestotal_byyear,2,function(x) quantile(x,c(0.025,0.5,0.975)))))
       colnames(repcasestotal_byyear)=c("LCI","Median","UCI")
-      repcasestotal_byyear$Year=2016:2023
+      repcasestotal_byyear$Year=yr1:lastyr
       repcasestotal_byyear$Model='Estimated'
       
       obscasestotal = data.frame('Median'=colSums(case_data),
                                  'LCI'=NA,
                                  'UCI'=NA,
-                                 'Year'=2016:2023,
+                                 'Year'=yr1:lastyr,
                                  'Model'="Observed")
       repcasestotal_byyear = rbind(repcasestotal_byyear,obscasestotal)
       
@@ -271,7 +273,7 @@ year_fitgraph <- function(as_denguefoi_fe){
             geom_point(data=repcasestotal_byyear %>% filter(Model=="Estimated"),aes(x = Year, y = Median),col = "steelblue") +
             geom_errorbar(data=repcasestotal_byyear %>% filter(Model=="Estimated"),
                           aes(x=Year,ymin=LCI,ymax=UCI),col = "steelblue")+
-            scale_x_continuous(name="Year",breaks=seq(2010,2023,by=2))+ylab("Reported cases")+
+            scale_x_continuous(name="Year",breaks=seq(2010,lastyr,by=2))+ylab("Reported cases")+
             theme(axis.text=element_text(size=6),
                   axis.title=element_text(size=6))
       
