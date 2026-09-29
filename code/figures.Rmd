@@ -20,6 +20,7 @@ library(readxl)
 library(survey)
 
 source("code/catalytic_model/load_libraries.R")
+source("code/catalytic_model/load_census_data.R")
 
 
 expit = function(x) {1/(1+exp(-x))}
@@ -543,6 +544,7 @@ library(ggplot2)
 
 
 
+source("code/catalytic_model/load_case_data.R")
 
 
 f3 <- cowplot::plot_grid(
@@ -752,9 +754,44 @@ modelfit<-modelobject$fit
 
 draws1 <- read_rds("data/generated_data/figure4/draws1.rds")
 f4a_p2_df <- read_rds("data/generated_data/figure4/f4a_p2_df.rds")
-pop_groups <- read_rds("data/generated_data/figure4/pop_groups.rds")
+# pop_groups <- read_rds("data/generated_data/figure4/pop_groups.rds")
 cumlambdas <- read_rds("data/generated_data/figure4/cumlambdas.rds")
 draws3_2023 <- read_rds("data/generated_data/figure4/draws3_2023.rds")
+
+
+
+pop_groups<- cumlambdas %>%
+      mutate(susc=exp(-4 * cumlambda),
+             mono= 4*exp(-3*cumlambda)*(1-exp(-cumlambda)),
+      )%>%
+      mutate(the_rest=1-susc-mono)%>%
+      mutate(AgeGroup=cut(age,seq(0,50,5),
+                                      right=FALSE,
+                                      labels=c(
+                                            
+                                            paste(
+                                            c(0,seq(5,45,5)),"to",
+                                            seq(4,49,5),"years")
+                                      )))%>%
+      group_by(.draw,year,AgeGroup)%>%
+      summarise(median=mean(cumlambda),
+                susc=mean(susc),
+                mono=mean(mono),
+                the_rest=mean(the_rest)
+      )    %>%
+      left_join(select(popdata,AgeGroup, Percentage))
+
+pop_groups <- pop_groups %>%
+      group_by(.draw,year) %>%
+      summarise(
+                susc=sum(susc*Percentage)/sum(Percentage),
+                mono=sum(mono*Percentage)/sum(Percentage),
+                the_rest=sum(the_rest*Percentage)/sum(Percentage)
+      ) 
+      
+
+# count(pop_groups,AgeGroup) %>%
+
 
 
 ```
@@ -809,7 +846,7 @@ f4a_p2<- f4a_p2_df%>%
 
 
 f4b_data <- pop_groups %>%
-      select(-median) %>%
+      # select(-median) %>%
       gather(type, value, -c(year, .draw)) %>%
       group_by(type, year) %>%
       summarise(
@@ -847,7 +884,7 @@ f4b <- ggplot(f4b_table, aes(x = year, y = median, color = fct_rev(Type), fill =
       
       labs(
             x = "Year",
-            y = "% of population",
+            y = "% of population\n<50 years old",
             color = "DENV Infection\nHistory",
             fill = "DENV Infection\nHistory"
       ) +
@@ -933,21 +970,21 @@ figure4
 f4_height <- 6.42
 f4_width <-5
 
-ggsave(filename = "output/figures/figure4.png",
+ggsave(filename = "output/figures/figure4_new.png",
        plot = figure4,
        height = f4_height,
        width = f4_width,
        scale=1.1
        )
 
-ggsave(filename = "output/figures/figure4.pdf",
+ggsave(filename = "output/figures/figure4_new.pdf",
        plot = figure4,
        height = f4_height,
        width = f4_width,
        scale=1.1
        )
 
-ggsave(filename = "output/figures/figure4_bg.tiff",
+ggsave(filename = "output/figures/figure4_bg_new.tiff",
        plot = figure4,
        height = f4_height,
        width = f4_width,

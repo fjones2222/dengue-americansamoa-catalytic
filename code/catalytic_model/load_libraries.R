@@ -143,8 +143,8 @@ run_FRAILTYregression_model_case_ss = function(compiled_model,
                               compiled_model,
                               data = data_prov,
                               chains = number_of_chains,
-                              iter = 1000,
-                              warmup = 500,
+                              iter = 2000,
+                              warmup = 1000,
                               thin = 1,
                               control = list(adapt_delta = 0.80)
                               
