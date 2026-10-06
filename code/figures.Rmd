@@ -20,6 +20,7 @@ library(readxl)
 library(survey)
 
 source("code/catalytic_model/load_libraries.R")
+source("code/catalytic_model/load_case_data.R")
 source("code/catalytic_model/load_census_data.R")
 
 
@@ -517,7 +518,7 @@ svyglm(sero_binary ~ arrive_as, design = nonend_born.dsn, family = quasibinomial
 ```{r}
 
 #this step takes awhile
-modelobject<- former <- read_rds(file="output/model_fits/20250818_188_former.rds")
+modelobject<- former <- read_rds(file="output/model_fits/20261006_1142_former_1_0_2007_1.25300157782569_0.5.rds")
 
 
 
@@ -604,7 +605,7 @@ ggsave(filename="output/figures/figure3_bg.tiff", plot=f3,
 
 modelfit<-modelobject$fit
 
-
+# modelfit %>% shinystan::launch_shinystan()
 #refining this based on the recs 
 draws1 <- modelfit %>%
       spread_draws(lambda[year]) %>%
@@ -615,7 +616,7 @@ draws1 <- modelfit %>%
             upper = quantile(lambda * 4, 0.975),
             .groups = 'drop'
       ) %>%
-      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
+      mutate(actual_year = 2023 + (year - 17))%>%  # Convert index to actual years
       filter(actual_year >= 2008) 
       
 
@@ -635,7 +636,7 @@ f4a_p2_df <- modelfit%>%
              ) %>%
       bind_rows(modelfit %>%
       spread_draws(lambda[year]) %>%
-      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
+      mutate(actual_year = 2023 + (year - 17))%>%  # Convert index to actual years
       filter(actual_year >= 2008)   %>%
       group_by(.draw)%>%
       summarise(lambda=mean(lambda))%>%
@@ -684,19 +685,19 @@ for(i in times){
 
 
 
-
-# Convert cumulative FOI into population proportions
-pop_groups<- cumlambdas %>%
-      mutate(susc=exp(-4 * cumlambda),
-             mono= 4*exp(-3*cumlambda)*(1-exp(-cumlambda)),
-      )%>%
-      mutate(the_rest=1-susc-mono)%>%
-      group_by(.draw,year)%>%
-      summarise(median=mean(cumlambda),
-                susc=mean(susc),
-                mono=mean(mono),
-                the_rest=mean(the_rest)
-      ) 
+# #old method
+# # Convert cumulative FOI into population proportions
+# pop_groups<- cumlambdas %>%
+#       mutate(susc=exp(-4 * cumlambda),
+#              mono= 4*exp(-3*cumlambda)*(1-exp(-cumlambda)),
+#       )%>%
+#       mutate(the_rest=1-susc-mono)%>%
+#       group_by(.draw,year)%>%
+#       summarise(median=mean(cumlambda),
+#                 susc=mean(susc),
+#                 mono=mean(mono),
+#                 the_rest=mean(the_rest)
+#       ) 
 
 
 
@@ -750,13 +751,13 @@ modelfit<-modelobject$fit
 
 
 
-
-
-draws1 <- read_rds("data/generated_data/figure4/draws1.rds")
-f4a_p2_df <- read_rds("data/generated_data/figure4/f4a_p2_df.rds")
-# pop_groups <- read_rds("data/generated_data/figure4/pop_groups.rds")
-cumlambdas <- read_rds("data/generated_data/figure4/cumlambdas.rds")
-draws3_2023 <- read_rds("data/generated_data/figure4/draws3_2023.rds")
+# 
+# 
+# draws1 <- read_rds("data/generated_data/figure4/draws1.rds")
+# f4a_p2_df <- read_rds("data/generated_data/figure4/f4a_p2_df.rds")
+# # pop_groups <- read_rds("data/generated_data/figure4/pop_groups.rds")
+# cumlambdas <- read_rds("data/generated_data/figure4/cumlambdas.rds")
+# draws3_2023 <- read_rds("data/generated_data/figure4/draws3_2023.rds")
 
 
 
@@ -771,7 +772,7 @@ pop_groups<- cumlambdas %>%
                                             
                                             paste(
                                             c(0,seq(5,45,5)),"to",
-                                            seq(4,49,5),"years")
+                                            seq(4,49,5))
                                       )))%>%
       group_by(.draw,year,AgeGroup)%>%
       summarise(median=mean(cumlambda),

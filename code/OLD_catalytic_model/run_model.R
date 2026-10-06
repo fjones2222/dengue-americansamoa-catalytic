@@ -40,19 +40,13 @@ rstan_options(auto_write = TRUE) # extended packages to use stan
 
 
 #### lets try the added frailty model
-model_FRAILTYcode = stanc(file="code/catalytic_model/AS_dengue_catalytic_schoolFOI_0930.stan")
+model_FRAILTYcode = stanc(file="code/catalytic_model/AS_dengue_catalytic_schoolFOI_0513.stan")
 compiled_FRAILTYmodel = stan_model(stanc_ret = model_FRAILTYcode)
 
 #run the for each population model
-vary_reprateratio = 1
-fixed_reprateratio = 0
 
-## First year of annual FOI to estimate - before this we assume constant FOI
-firstyear_annualfoi = 2007
-
-foi_sd = logitnorm::twCoefLogitnorm(foi_init(77, median(case_data_indiv$age,na.rm=T), incidence), yearly_foi_sd)[2]
-
-for(pop in names(analysis_set)[c(1,3)]){
+for(pop in names(analysis_set)){
+# pop <- "former"
 
       this_dataset <- analysis_set[[pop]]
       
@@ -65,20 +59,15 @@ for(pop in names(analysis_set)[c(1,3)]){
                                                          svyweights=1,
                                                          c(),
                                                          c(),
-                                                         n_serotypes,
-                                                         runmod=T,
-                                                         glue::glue('_case2016to2022_{pop}_{Sys.Date()}_{vary_reprateratio}_{fixed_reprateratio}_{firstyear_annualfoi}_{foi_sd}'),
-                                                         number_of_chains = 4,
-                                                         foi_sd = foi_sd,
-                                                         vary_reprateratio = vary_reprateratio,
-                                                         fixed_reprateratio = fixed_reprateratio,
-                                                         firstyear_annualfoi = firstyear_annualfoi
+                                                         maternal_immunity,#T_lambda,
+                                                         n_serotypes,T,glue::glue('_case2016to2022_{pop}_{Sys.Date()}'),
+                                                         number_of_chains = 4
                                                          )
 
       
       lastyear_annualfoi=2023
       serosurv_year=2023
-      firstyear_toreport=firstyear_annualfoi
+      firstyear_toreport=2007
       
       this_object <- list(
             population = pop,
@@ -87,7 +76,7 @@ for(pop in names(analysis_set)[c(1,3)]){
             p1 = seroprev_fitgraph(this_dataset,as_denguemod),
             p2 = year_fitgraph(as_denguemod),
             p3 = agegroup_fitgraph(as_denguemod),
-            foi_table = make_foi_table(as_denguemod,lastyear_annualfoi,firstyear_annualfoi,serosurv_year,firstyear_toreport)
+            foi_table = make_foi_table(as_denguemod,lastyear_annualfoi,serosurv_year,firstyear_toreport)
             
       )
       
@@ -97,47 +86,10 @@ for(pop in names(analysis_set)[c(1,3)]){
                                                            )
       
 
-      write_rds(this_object,file = 
-                  glue::glue('output/model_fits/{format(Sys.time(), "%Y%m%d")}_{hour(Sys.time())}{minute(Sys.time())}_{pop}_{vary_reprateratio}_{fixed_reprateratio}_{firstyear_annualfoi}_{foi_sd}.rds'))
+      write_rds(this_object,file = glue::glue('output/model_fits/{format(Sys.time(), "%Y%m%d")}_{hour(Sys.time())}{minute(Sys.time())}_{pop}.rds'))
             
 
 }
-
-## Serosurvey only
-model_FRAILTYcode = stanc(file="code/catalytic_model/AS_dengue_catalytic_schoolFOI_ssonly_0930.stan")
-compiled_FRAILTYmodel = stan_model(stanc_ret = model_FRAILTYcode)
-
-this_dataset <- analysis_set[["former"]]
-
-as_denguemod = run_FRAILTYregression_model_ss(compiled_FRAILTYmodel,
-                                              serosurv_data=this_dataset, #serosurv_data,
-                                              svyweights=1,
-                                              c(),
-                                              c(),
-                                              n_serotypes,
-                                              runmod=T,
-                                              glue::glue('_ssonly_{pop}_{Sys.Date()}_{foi_sd}'),
-                                              number_of_chains = 4,
-                                              foi_sd = foi_sd
-)
-
-lastyear_annualfoi=2023
-serosurv_year=2023
-firstyear_toreport=firstyear_annualfoi
-
-this_object <- list(
-  population = pop,
-  dataset= this_dataset,
-  fit= as_denguemod,
-  p1 = seroprev_fitgraph_ssonly(this_dataset,as_denguemod),
-  foi_table = make_foi_table_ssonly(as_denguemod,serosurv_year)
-  
-)
-
-write_rds(this_object,file = 
-            glue::glue('output/model_fits/ssonly_{format(Sys.time(), "%Y%m%d")}_{hour(Sys.time())}{minute(Sys.time())}_{pop}_{foi_sd}.rds'))
-
-
 
 
 
@@ -186,22 +138,21 @@ as_denguemod = run_FRAILTYregression_model_case_ss(compiled_FRAILTYmodel,
 
 write_rds(as_denguemod,file = glue::glue('output/model_fits/{format(Sys.time(), "%Y%m%d")}_{hour(Sys.time())}{minute(Sys.time())}_former_combo1718.rds'))
 
-model_FRAILTYcode_old = stanc(file="code/catalytic_model/AS_dengue_catalytic_schoolFOI_0513.stan")
-compiled_FRAILTYmodel_old = stan_model(stanc_ret = model_FRAILTYcode_old)
 
 
-as_denguemod_old = run_FRAILTYregression_model_case_ss_old(compiled_FRAILTYmodel_old,
-                                                   serosurv_data=this_dataset, #serosurv_data,
-                                                   case_data,
-                                                   pop_data,
-                                                   lr_bound,
-                                                   ur_bound,
-                                                   svyweights=1,
-                                                   c(),
-                                                   c(),
-                                                   n_serotypes,T,glue::glue('_case2016to2022_{pop}_{Sys.Date()}'),
-                                                   number_of_chains = 4
-)
+# as_denguemod = run_FRAILTYregression_model_case_ss(compiled_FRAILTYmodel,
+#                                                    serosurv_data=this_dataset, #serosurv_data,
+#                                                    case_data,
+#                                                    pop_data,
+#                                                    lr_bound,
+#                                                    ur_bound,
+#                                                    svyweights=1,
+#                                                    c(),
+#                                                    c(),
+#                                                    maternal_immunity,#T_lambda,
+#                                                    n_serotypes,T,glue::glue('_case2016to2022_{pop}_{Sys.Date()}'),
+#                                                    number_of_chains = 4
+# )
 
 
 

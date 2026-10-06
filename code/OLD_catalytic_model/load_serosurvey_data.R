@@ -7,7 +7,7 @@ wide_dataset <- read_csv("data/generated_data/wide_dataset.csv")%>%
       rename(RecordID=`Record ID`,
                Age=`Calculated age based on DOB.`,
                Village=`Village of Residence`,
-             #Date.of.birth=`Date of birth`
+             Date.of.birth=`Date of birth`
              ) %>%
       mutate(Seropositive = as.numeric(`Final Test Result`=="P"),
              sexf = as.numeric(Sex=="Female"),
