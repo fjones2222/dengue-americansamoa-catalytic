@@ -187,7 +187,7 @@ f1 <- ArboNET_Case_Data %>%
       
       # Serosurvey annotation boxes
       annotate("label", x = 2010, y = 200,
-               label = "2010 Serosurvey\n18–25 yrs: 89.0%\n26–40 yrs: 99.5%\nn=395",
+               label = "2010 Serosurvey\n18–25 yrs: 89.0%\n26–40 yrs: 99.5%\nn=418",
                size = 4, color = "black", fill = "white", label.size = 0.5,
                lineheight = 1.3,  vjust = 0.5) +
       annotate("label", x = 2023, y = 200,
@@ -518,14 +518,18 @@ svyglm(sero_binary ~ arrive_as, design = nonend_born.dsn, family = quasibinomial
 ```{r}
 
 #this step takes awhile
-modelobject<- former <- read_rds(file="output/model_fits/20261006_1142_former_1_0_2007_1.25300157782569_0.5.rds")
+modelobject<- former <- read_rds(file="output/model_fits/20261007_939_former_1_0_2007_1.25300157782569.rds")
 
+modelobject$fit 
+
+summary(modelobject$fit)$summary %>%
+      data.frame()  %>% summary()
 
 
 library(tidybayes)
 
 modelobject$fit %>% 
-      spread_draws(frailty_alpha) %>%
+      spread_draws(frailty_alpha) %>% summary()
       mutate(frailty_alpha=1/frailty_alpha)%>%
       median_qi() 
       
@@ -553,9 +557,12 @@ f3 <- cowplot::plot_grid(
            cowplot::theme_cowplot()+
            scale_x_continuous(name='Age of serosurvey participant in 2023',breaks=9:17,labels=8:16),
       cowplot::plot_grid(ggdraw(year_fitgraph(former$fit) +
-                         cowplot::theme_cowplot())+
+                         cowplot::theme_cowplot()+
+                               ylab("Observed or\nModeled Cases")
+                               )+
                                draw_grob(get_legend(fake_plot),x=0.55,y=0.2),
-                         ggdraw(agegroup_fitgraph(former$fit) +cowplot::theme_cowplot())+
+                         ggdraw(agegroup_fitgraph(former$fit)+
+                               ylab("Observed or\nModeled Cases") +cowplot::theme_cowplot())+
                                draw_grob(get_legend(fake_plot),x=0.55,y=0.25),
                          nrow = 1,
                          labels=c("B","C")
@@ -604,6 +611,7 @@ ggsave(filename="output/figures/figure3_bg_new.tiff", plot=f3,
 ```{r f4-calcs, eval=FALSE}
 
 modelfit<-modelobject$fit
+
 
 # modelfit %>% shinystan::launch_shinystan()
 #refining this based on the recs 
@@ -823,7 +831,7 @@ f4_lwd <- 1
 f4_alpha <- 0.7
 
 f4a_p1 <- ggplot(draws1, aes(x = actual_year)) +
-      geom_hline(yintercept = 0,col="grey90")+
+      geom_hline(yintercept = 0,col="black",lty=2)+
       geom_point(aes(y = cumhaz_to_prob(median)),size=f4_size,alpha=f4_alpha) +
       geom_linerange(aes(ymin = cumhaz_to_prob(lower), ymax = cumhaz_to_prob(upper)),lwd=f4_lwd) +
       scale_x_continuous("Year",breaks = 2007:2023) +  # Show all years
@@ -845,7 +853,7 @@ f4a_p2<- f4a_p2_df%>%
       #                       "American\nSamoa",setting
       #                       ))%>%
       ggplot(aes(x=(setting),y=cumhaz_to_prob(.value)))+
-      geom_hline(yintercept = 0,col="grey90")+
+      geom_hline(yintercept = 0,col="black",lty=2)+
       geom_point(size=f4_size,alpha=f4_alpha)+
       geom_linerange(aes(ymin=cumhaz_to_prob(.lower),ymax=cumhaz_to_prob(.upper)),lwd=f4_lwd)+
       theme_minimal()+
@@ -886,7 +894,7 @@ f4b_table <- f4b_data %>%
       arrange(year, Type) %>%
       filter(Type=="Naïve") %>%
       filter(year>=2016)
-
+f4b_table
 
 library(scales)
 
@@ -904,7 +912,7 @@ f4b <- ggplot(f4b_table, aes(x = year, y = median, color = fct_rev(Type), fill =
       
       labs(
             x = "Year",
-            y = "% of the population naïve\namong <50 years old",
+            y = "% of the population DENV-\nnaïve among <50 years old",
             color = "DENV Infection\nHistory",
             fill = "DENV Infection\nHistory"
       ) +
@@ -1670,7 +1678,7 @@ plot_grid(combo_sf1a,combo_sf1b,
 
 ```{r}
 
-modelobject<- read_rds(file="output/model_fits/20261006_1142_former_1_0_2007_1.25300157782569_0.5.rds")
+modelobject<- read_rds(file="output/model_fits/20261007_939_former_1_0_2007_1.25300157782569.rds")
 
 
 
@@ -1714,6 +1722,17 @@ overall_diff_df <- modelobject$fit%>%
       spread(colname,value) %>%
       mutate(actual_year="Average")
       
+
+
+modelobject$fit%>%
+      gather_draws(lambda[year]) %>%
+      mutate(actual_year = 2023 + (year - 17))%>%  # Convert index to actual years
+      filter(actual_year >= 2007 |is.na(year))%>%
+      group_by(.draw,.variable)%>%
+      summarise(.value=mean(cumhaz_to_prob(4*.value)*100)) %>%
+      group_by(.variable)%>%
+      summarize(
+            foi=med_ci(.value))
       
 
 difference_df <- modelobject$fit %>%
@@ -1739,6 +1758,9 @@ difference_df <- modelobject$fit %>%
       mutate(actual_year=as.character(actual_year))
 
 
+
+
+
 bind_rows(
       overall_diff_df,
       difference_df)%>%
@@ -1751,8 +1773,8 @@ bind_rows(
             NONEND_DIFF
       ) %>%
       flextable::flextable() %>%
-      flextable::autofit() %>%
-      flextable::save_as_docx(path="output/figures/supplementary_figures/difftable.docx")
+      flextable::autofit() #%>%
+      # flextable::save_as_docx(path="output/figures/supplementary_figures/difftable.docx")
 
 
 
@@ -1765,22 +1787,33 @@ ssonly_object<- read_rds(file="output/model_fits/ssonly_20261004_1631_former_5.r
 
 
 
-ssonly_object$fit %>% spread_draws(lambda[t]) %>%
+ssonly_p1 <- ssonly_object$fit %>% spread_draws(lambda[t]) %>%
       group_by(t)%>%
       median_qi() %>%
       mutate(foi=cumhaz_to_prob(4*lambda))%>%
-      mutate(year=t+2006)
+      mutate(year=t+2006)%>%
+      ggplot(aes(x=factor(year)))+
+      geom_point(aes(y=foi))+
+      geom_linerange(aes(ymin=.lower,ymax=.upper))+
+      ylab("Annual FOI")+
+      xlab("Year")
+      
 
       
 
-ssonly_object$fit %>% spread_draws(lambda[t]) %>%
+ssonly_p2 <- ssonly_object$fit %>% spread_draws(lambda[t]) %>%
       mutate(year=t+2006)%>%
       group_by(year)%>%
       summarise(proportion=mean(cumhaz_to_prob(4*lambda)>0.04))%>%
-      ggplot(aes(x=year,y=proportion))+
+      ggplot(aes(x=factor(year),y=proportion*100))+
       geom_col()+
-      ylab("Proportion of draws with FOI>0.04")
+      ylab("Percent of draws\nwith FOI>0.04")+
+      xlab("Year")
       
+
+plot_grid(ssonly_p1,ssonly_p2,nrow=2,align = "hv",
+          labels=c("A","B")
+          )
 
 # ssonly_object$fit %>% spread_draws(lambda[t]) %>%
 #       mutate(year=t+2006)%>%
