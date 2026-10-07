@@ -165,7 +165,7 @@ neccesary_years= long_dataset %>%
 
 # ggsave(filename="output/figures/figure1.png", plot=f1,height=3,width = 5.8,scale=1.5)
 # ggsave(filename="output/figures/figure1.pdf", plot=f1)
-# ggsave(filename="output/figures/figure1.tiff", plot=f1)
+# ggsave(filename="output/figures/figure1_new.tiff", plot=f1)
 
 
 #alternative figure 1
@@ -222,7 +222,7 @@ f1
 
 # ggsave(filename="output/figures/figure1.png", plot=f1,height=3.9,width = 6.5,scale=1.5)
 # ggsave(filename="output/figures/figure1.pdf", plot=f1,height=3.9,width = 6.5,scale=1.5)
-ggsave(filename="output/figures/figure1_bg.tiff", plot=f1,height=3.9,width = 6.5,scale=1.5,
+ggsave(filename="output/figures/figure1_bg_new.tiff", plot=f1,height=3.9,width = 6.5,scale=1.5,
        bg = "white"
        )
 
@@ -480,9 +480,9 @@ f2 <- plot_grid(f2a,f2b,rel_widths = c(1,1.1),
 
 f2      
 
-ggsave(filename="output/figures/figure2.png", plot=f2, width=6.5,height=3.7,scale=1.5)
-ggsave(filename="output/figures/figure2.pdf", plot=f2)
-ggsave(filename="output/figures/figure2.tiff", plot=f2)
+# ggsave(filename="output/figures/figure2.png", plot=f2, width=6.5,height=3.7,scale=1.5)
+# ggsave(filename="output/figures/figure2.pdf", plot=f2)
+ggsave(filename="output/figures/figure2_new.tiff", width=6.5,height=3.7,scale=1.5,plot=f2)
 
 
 f2_df
@@ -566,9 +566,9 @@ f3 <- cowplot::plot_grid(
 
 f3
 
-ggsave(filename="output/figures/figure3.png", plot=f3, height=5)
-ggsave(filename="output/figures/figure3.pdf", plot=f3)
-ggsave(filename="output/figures/figure3_bg.tiff", plot=f3,
+# ggsave(filename="output/figures/figure3.png", plot=f3, height=5)
+# ggsave(filename="output/figures/figure3.pdf", plot=f3)
+ggsave(filename="output/figures/figure3_bg_new.tiff", plot=f3,
        height = 4.6,width=6.5,scale=1.1,
      bg="white")
 
@@ -617,7 +617,7 @@ draws1 <- modelfit %>%
             .groups = 'drop'
       ) %>%
       mutate(actual_year = 2023 + (year - 17))%>%  # Convert index to actual years
-      filter(actual_year >= 2008) 
+      filter(actual_year >= 2007) 
       
 
 
@@ -637,7 +637,7 @@ f4a_p2_df <- modelfit%>%
       bind_rows(modelfit %>%
       spread_draws(lambda[year]) %>%
       mutate(actual_year = 2023 + (year - 17))%>%  # Convert index to actual years
-      filter(actual_year >= 2008)   %>%
+      filter(actual_year >= 2007)   %>%
       group_by(.draw)%>%
       summarise(lambda=mean(lambda))%>%
       ungroup() %>%
@@ -650,12 +650,39 @@ f4a_p2_df <- modelfit%>%
       mutate(setting="American Samoa")
 )
 
-ages <- 1:49
-times <-1:64
+
+
+
+
+
+
 
 lambdas <- modelfit %>% spread_draws(lambda[t]) 
-cumlambdas <- data.frame()
 
+modelfit %>% spread_draws(pre_lambda) %>% median_qi() %>%
+      rename(lambda=pre_lambda) %>%
+      mutate(t=0)%>%
+      bind_rows(
+           lambdas %>%
+      group_by(t)%>%
+      median_qi()   
+      )%>%
+      mutate(year=2023-17+t)%>%
+      mutate(period=ifelse(year<2007,"Pre-2007","Post-2007"))%>%
+            ggplot(aes(x=year,y=lambda,col=period))+
+            geom_point()+
+            geom_linerange(aes(ymin=.lower,ymax=.upper))
+     
+     
+      
+
+
+
+
+ages <- 1:49
+times <-1:17
+
+cumlambdas <- data.frame()
 for(i in times){
       for(a in ages){
             
@@ -666,10 +693,14 @@ for(i in times){
                   filter(t<=i) %>% ### only include the years that have occurred before or during time i
                   filter(t>=(i-a)) %>% ### only include those years where the individuals are alive
                   group_by(.draw)%>%
-                  summarise(cumlambda=sum(lambda)) %>%
+                  summarise(new_cumlambda=sum(lambda)) %>%
                   mutate(age=a,
                          year=i
-                  )
+                  ) %>%
+                  mutate(age2007=age-i+1) #%>%
+                  # ungroup()%>%
+                  # left_join(cum_prelambda2006) %>%
+                  # mutate(cumlambda=new_cumlambda+cum_prelambda2006)
             
             
             cumlambdas <- bind_rows(cumlambdas,
@@ -683,23 +714,48 @@ for(i in times){
       }
 }
 
+cum_prelambda2007 <- modelfit %>% spread_draws(pre_lambda) %>%
+                  expand_grid(age2007=1:49) %>%
+                  mutate(pre2007_cumulative=(age2007-1)*pre_lambda) %>%
+                  select(.draw,age2007,pre2007_cumulative)
 
 
-# #old method
-# # Convert cumulative FOI into population proportions
-# pop_groups<- cumlambdas %>%
-#       mutate(susc=exp(-4 * cumlambda),
-#              mono= 4*exp(-3*cumlambda)*(1-exp(-cumlambda)),
-#       )%>%
-#       mutate(the_rest=1-susc-mono)%>%
-#       group_by(.draw,year)%>%
-#       summarise(median=mean(cumlambda),
-#                 susc=mean(susc),
-#                 mono=mean(mono),
-#                 the_rest=mean(the_rest)
-#       ) 
+cumlambdas<- cumlambdas %>% left_join(cum_prelambda2007)%>%
+      mutate(pre2007_cumulative=ifelse(age2007<1,
+                                       0,pre2007_cumulative
+                                       ))%>%
+      mutate(cumlambda=pre2007_cumulative+new_cumlambda)
 
 
+
+
+pop_groups<- cumlambdas %>%
+      mutate(susc=exp(-4 * cumlambda),
+             mono= 4*exp(-3*cumlambda)*(1-exp(-cumlambda)),
+      )%>%
+      mutate(the_rest=1-susc-mono)%>%
+      mutate(AgeGroup=cut(age,seq(0,50,5),
+                                      right=FALSE,
+                                      labels=c(
+                                            
+                                            paste(
+                                            c(0,seq(5,45,5)),"to",
+                                            seq(4,49,5))
+                                      )))%>%
+      group_by(.draw,year,AgeGroup)%>%
+      summarise(median=mean(cumlambda),
+                susc=mean(susc),
+                mono=mean(mono),
+                the_rest=mean(the_rest)
+      )    %>%
+      left_join(select(popdata,AgeGroup, Percentage))%>%
+      group_by(.draw,year) %>%
+      summarise(
+                susc=sum(susc*Percentage)/sum(Percentage),
+                mono=sum(mono*Percentage)/sum(Percentage),
+                the_rest=sum(the_rest*Percentage)/sum(Percentage)
+      ) 
+      
 
 # Line plot with ribbon
 
@@ -718,24 +774,13 @@ draws3_2023 <- modelobject$fit%>%
                   .groups = 'drop'
             ) 
       
-      
-# draws3_2023 <- modelobject$fit%>%
-      # spread_draws(mono[age, year]) %>%
-      # filter(year == 8) %>%
-      # group_by(age) %>%
-      # summarise(
-      #       median = median(mono),
-      #       lb = quantile(mono, 0.025),
-      #       ub = quantile(mono, 0.975),
-      #       .groups = 'drop'
-      # )
 
 
-# write_rds(draws1,"data/generated_data/figure4/draws1.rds")
-# write_rds(f4a_p2_df,"data/generated_data/figure4/f4a_p2_df.rds")
-# write_rds(pop_groups,"data/generated_data/figure4/pop_groups.rds")
-# write_rds(cumlambdas,"data/generated_data/figure4/cumlambdas.rds")
-# write_rds(draws3_2023,"data/generated_data/figure4/draws3_2023.rds")
+write_rds(draws1,"data/generated_data/figure4/draws1.rds")
+write_rds(f4a_p2_df,"data/generated_data/figure4/f4a_p2_df.rds")
+write_rds(pop_groups,"data/generated_data/figure4/pop_groups.rds")
+write_rds(cumlambdas,"data/generated_data/figure4/cumlambdas.rds")
+write_rds(draws3_2023,"data/generated_data/figure4/draws3_2023.rds")
 
 ```
 
@@ -761,35 +806,7 @@ modelfit<-modelobject$fit
 
 
 
-pop_groups<- cumlambdas %>%
-      mutate(susc=exp(-4 * cumlambda),
-             mono= 4*exp(-3*cumlambda)*(1-exp(-cumlambda)),
-      )%>%
-      mutate(the_rest=1-susc-mono)%>%
-      mutate(AgeGroup=cut(age,seq(0,50,5),
-                                      right=FALSE,
-                                      labels=c(
-                                            
-                                            paste(
-                                            c(0,seq(5,45,5)),"to",
-                                            seq(4,49,5))
-                                      )))%>%
-      group_by(.draw,year,AgeGroup)%>%
-      summarise(median=mean(cumlambda),
-                susc=mean(susc),
-                mono=mean(mono),
-                the_rest=mean(the_rest)
-      )    %>%
-      left_join(select(popdata,AgeGroup, Percentage))
 
-pop_groups <- pop_groups %>%
-      group_by(.draw,year) %>%
-      summarise(
-                susc=sum(susc*Percentage)/sum(Percentage),
-                mono=sum(mono*Percentage)/sum(Percentage),
-                the_rest=sum(the_rest*Percentage)/sum(Percentage)
-      ) 
-      
 
 # count(pop_groups,AgeGroup) %>%
 
@@ -809,7 +826,7 @@ f4a_p1 <- ggplot(draws1, aes(x = actual_year)) +
       geom_hline(yintercept = 0,col="grey90")+
       geom_point(aes(y = cumhaz_to_prob(median)),size=f4_size,alpha=f4_alpha) +
       geom_linerange(aes(ymin = cumhaz_to_prob(lower), ymax = cumhaz_to_prob(upper)),lwd=f4_lwd) +
-      scale_x_continuous("Year",breaks = 2008:2023) +  # Show all years
+      scale_x_continuous("Year",breaks = 2007:2023) +  # Show all years
       theme_minimal() +  # Using minimal theme
       theme(
             panel.grid.minor = element_blank(),  # Remove minor grid lines
@@ -860,13 +877,15 @@ f4b_data <- pop_groups %>%
 # Fix and relabel data for plot
 f4b_table <- f4b_data %>%
       mutate(
-            year = 2023 - 64 + year,
+            year = 2023 - 17 + year,
             Type = factor(type, levels = c("susc", "mono", "the_rest"),
                           labels = c("Naïve", "Only once", "Multiple times"))
       ) %>%
-      filter(year >= 2008) %>%
+      # filter(year >= 2008) %>%
       select(year, Type, median, lb, ub) %>%
-      arrange(year, Type)
+      arrange(year, Type) %>%
+      filter(Type=="Naïve") %>%
+      filter(year>=2016)
 
 
 library(scales)
@@ -881,11 +900,11 @@ f4b <- ggplot(f4b_table, aes(x = year, y = median, color = fct_rev(Type), fill =
       ) +
       
       # Format y-axis as percentages
-      scale_y_continuous(labels = percent_format(accuracy = 1)) +
+      scale_y_continuous(labels = percent_format(accuracy = 1),limits=c(0,0.5)) +
       
       labs(
             x = "Year",
-            y = "% of population\n<50 years old",
+            y = "% of the population naïve\namong <50 years old",
             color = "DENV Infection\nHistory",
             fill = "DENV Infection\nHistory"
       ) +
@@ -905,7 +924,6 @@ f4b <- ggplot(f4b_table, aes(x = year, y = median, color = fct_rev(Type), fill =
             axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1) 
             
       )
-
 
 
 
@@ -944,48 +962,63 @@ f4c <- draws3_2023 %>%
 
 
 
+figure4 <- plot_grid(
+                  plot_grid(f4a_p1,f4a_p2, align="hv",
+                      labels = c("A","B"),
+                           rel_widths = c(3,1.5)),
+                  plot_grid(f4b+theme(legend.position = "none"),
+                  f4c, labels = c("C","D")
+                  ),nrow=2)
+
+                     
+#           ,
+#       axis="bl",
+#        label_size = 12,   
+#        labels = c("A","B","C","","D",""),
+#       rel_widths = c(3,1.5)
+# 
+# )
 
 
 
 
-
-figure4 <- plot_grid(f4a_p1,f4a_p2,
-          f4b+theme(legend.position = "none"),
-                get_legend(f4b),
-                  f4c,
-      ggplot()+theme_void(),
-      nrow=3,
-      align = "hv",
-      axis="bl",
-       label_size = 12,   
-       labels = c("A","B","C","","D",""),
-      rel_widths = c(3,1.5)
-
-)
+# figure4 <- plot_grid(f4a_p1,f4a_p2,
+#           f4b+theme(legend.position = "none"),
+#                 get_legend(f4b),
+#                   f4c,
+#       ggplot()+theme_void(),
+#       nrow=3,
+#       align = "hv",
+#       axis="bl",
+#        label_size = 12,   
+#        labels = c("A","B","C","","D",""),
+#       rel_widths = c(3,1.5)
+# 
+# )
           
           
       
 
 figure4
 
-f4_height <- 6.42
+f4_height <- 5
 f4_width <-5
 
-ggsave(filename = "output/figures/figure4_new.png",
-       plot = figure4,
-       height = f4_height,
-       width = f4_width,
-       scale=1.1
-       )
+# ggsave(filename = "output/figures/figure4_new.png",
+#        plot = figure4,
+#        height = f4_height,
+#        width = f4_width,
+#        scale=1.1
+#        )
+# 
+# ggsave(filename = "output/figures/figure4_new.pdf",
+#        plot = figure4,
+#        height = f4_height,
+#        width = f4_width,
+#        scale=1.1
+#        )
 
-ggsave(filename = "output/figures/figure4_new.pdf",
-       plot = figure4,
-       height = f4_height,
-       width = f4_width,
-       scale=1.1
-       )
-
-ggsave(filename = "output/figures/figure4_bg_new.tiff",
+ggsave(filename = "output/figures/figure4_bg_new_new.tiff",
        plot = figure4,
        height = f4_height,
        width = f4_width,
@@ -1181,7 +1214,7 @@ cohort_fig
 
 ggsave(plot=cohort_fig,filename = "output/figures/supplementary_figures/cohort.png")
 ggsave(plot=cohort_fig,filename = "output/figures/supplementary_figures/cohort.pdf")
-ggsave(plot=cohort_fig,filename = "output/figures/supplementary_figures/cohort.tiff")
+ggsave(plot=cohort_fig,filename = "output/figures/supplementary_figures/cohort_new.tiff")
 
 # plot_grid(fig2c,labels=c("C"))
 
@@ -1637,15 +1670,15 @@ plot_grid(combo_sf1a,combo_sf1b,
 
 ```{r}
 
-modelobject<- read_rds(file="output/model_fits/20250818_188_former.rds")
+modelobject<- read_rds(file="output/model_fits/20261006_1142_former_1_0_2007_1.25300157782569_0.5.rds")
 
 
 
 med_ci <- function(param) {
       
-      med <-round(median(param),2)
-      lb  <- round(quantile(param,0.025),2)
-      ub  <- round(quantile(param,0.975),2)
+      med <-round(median(param),0)
+      lb  <- round(quantile(param,0.025),0)
+      ub  <- round(quantile(param,0.975),0)
 
       glue::glue("{med} ({lb}–{ub})")
 }
@@ -1653,24 +1686,17 @@ med_ci <- function(param) {
 
 overall_diff_df <- modelobject$fit%>%
       gather_draws(logit_lambda_nonend,logit_lambda_end,lambda[year]) %>%
-      mutate(actual_year = 2023 + (year - 64))%>%  # Convert index to actual years
-      filter(actual_year >= 2008 |is.na(year))%>%
+      mutate(actual_year = 2023 + (year - 17))%>%  # Convert index to actual years
+      filter(actual_year >= 2007 |is.na(year))%>%
       group_by(.draw,.variable)%>%
       summarise(.value=mean(.value)) %>%
       mutate(.value=ifelse(.variable=="lambda",
-                           cumhaz_to_prob(4*.value),
-                           cumhaz_to_prob(4*expit(.value))))%>%
+                           cumhaz_to_prob(4*.value)*100,
+                           cumhaz_to_prob(4*expit(.value))*100))%>%
       group_by(.draw)%>%
       mutate(diff=.value[.variable=="lambda"]-.value)%>%
       group_by(.variable)%>%
       summarize(
-            # .lower = quantile(.value, 0.025),
-            # .upper = quantile(.value, 0.975),
-            # .value = median(.value),
-            # 
-            # med_diff=median(diff),
-            # lb_diff=quantile(diff, 0.025),
-            # ub_diff=quantile(diff, 0.975),
             foi=med_ci(.value),
             diff=med_ci(diff),
             .groups = 'drop'
@@ -1692,12 +1718,12 @@ overall_diff_df <- modelobject$fit%>%
 
 difference_df <- modelobject$fit %>%
       spread_draws(lambda[year],logit_lambda_end,logit_lambda_nonend)%>%
-      mutate(actual_year = 2023 + (year - 64)) %>%
-      filter(actual_year >= 2008)%>%
+      mutate(actual_year = 2023 + (year - 17)) %>%
+      filter(actual_year >= 2007)%>%
       mutate(
-             lambda=cumhaz_to_prob(4*lambda),
-             lambda_end=cumhaz_to_prob(4*expit(logit_lambda_end)),
-             lambda_nonend=cumhaz_to_prob(4*expit(logit_lambda_nonend))
+             lambda=cumhaz_to_prob(4*lambda)*100,
+             lambda_end=cumhaz_to_prob(4*expit(logit_lambda_end))*100,
+             lambda_nonend=cumhaz_to_prob(4*expit(logit_lambda_nonend))*100
              )%>%
       mutate(endemic_diff=lambda-lambda_end,
              nonendemic_diff=lambda-lambda_nonend
@@ -1731,6 +1757,41 @@ bind_rows(
 
 
 ```
+
+
+```{r}
+
+ssonly_object<- read_rds(file="output/model_fits/ssonly_20261004_1631_former_5.rds")
+
+
+
+ssonly_object$fit %>% spread_draws(lambda[t]) %>%
+      group_by(t)%>%
+      median_qi() %>%
+      mutate(foi=cumhaz_to_prob(4*lambda))%>%
+      mutate(year=t+2006)
+
+      
+
+ssonly_object$fit %>% spread_draws(lambda[t]) %>%
+      mutate(year=t+2006)%>%
+      group_by(year)%>%
+      summarise(proportion=mean(cumhaz_to_prob(4*lambda)>0.04))%>%
+      ggplot(aes(x=year,y=proportion))+
+      geom_col()+
+      ylab("Proportion of draws with FOI>0.04")
+      
+
+# ssonly_object$fit %>% spread_draws(lambda[t]) %>%
+#       mutate(year=t+2006)%>%
+#       mutate(foi=cumhaz_to_prob(4*lambda))%>%
+#       ggplot(aes(x=year,y=foi))+
+#       geom_line(aes(group=.draw),alpha=0.01)
+
+
+
+```
+
 
 
 
